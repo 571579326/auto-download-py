@@ -1,0 +1,29 @@
+[project]
+name = 'auto-download-py'
+version = '0.2.0'
+description = 'Hybrid browser + desktop automation service for local Python use and HTTP APIs'
+requires-python = '>=3.11'
+dependencies = [
+  'fastapi==0.115.0',
+  'uvicorn[standard]==0.30.6',
+  'playwright==1.55.0',
+  'SQLAlchemy==2.0.35',
+  'PyMySQL==1.1.1',
+  'pydantic==2.9.2',
+  'pydantic-settings==2.5.2',
+  'python-dotenv==1.0.1',
+  'requests==2.32.3',
+  'pywinauto==0.6.8',
+  'pyautogui==0.9.54',
+  'opencv-python==4.10.0.84',
+  'Pillow==10.4.0',
+  "asyncio>=4.0.0",
+  "cryptography>=42,<46",
+]
+
+[build-system]
+requires = ['hatchling']
+build-backend = 'hatchling.build'
+
+[tool.uv]
+package = false

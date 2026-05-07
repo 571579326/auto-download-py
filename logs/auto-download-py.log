@@ -1,0 +1,539 @@
+2026-04-15 16:51:10,221 INFO app.core.asyncio_policy MainThread 已切换 asyncio event loop policy -> WindowsProactorEventLoopPolicy
+2026-04-15 16:51:10,243 INFO app.main MainThread auto-download-py 启动完成，contextPath=/auto-download, debugPort=29222, eventLoopPolicy=WindowsProactorEventLoopPolicy
+2026-04-15 17:24:31,276 INFO app.main MainThread auto-download-py 正在关闭，准备释放运行时浏览器连接
+2026-04-16 09:57:14,870 INFO app.core.asyncio_policy MainThread 已切换 asyncio event loop policy -> WindowsProactorEventLoopPolicy
+2026-04-16 09:57:14,909 INFO app.main MainThread auto-download-py 启动完成，contextPath=/auto-download, debugPort=29222, eventLoopPolicy=WindowsProactorEventLoopPolicy
+2026-04-16 09:57:17,794 INFO app.browser.manager browser-service_0 启动浏览器进程: ['C:/software/chrome-win64/chrome.exe', '--remote-debugging-port=29222', '--user-data-dir=C:/cache/chromeTest/auto-download/shared-profile', '--no-first-run', '--no-default-browser-check', 'about:blank']
+2026-04-16 09:57:18,281 INFO app.browser.manager browser-service_0 浏览器进程已启动, pid=8024
+2026-04-16 09:57:19,332 INFO app.browser.manager browser-service_0 CDP探测成功, versionUrl=http://127.0.0.1:29222/json/version, websocket=ws://127.0.0.1:29222/devtools/browser/7a2ef5c0-4509-47bd-8648-b1c29e122655
+2026-04-16 09:57:19,332 INFO app.core.asyncio_policy browser-service_0 当前 asyncio event loop policy 已是 WindowsProactorEventLoopPolicy
+2026-04-16 09:57:19,333 INFO app.browser.manager browser-service_0 event loop policy检查, stage=before_sync_playwright_start, policy=WindowsProactorEventLoopPolicy
+2026-04-16 09:57:20,524 INFO app.browser.manager browser-service_0 浏览器运行时挂接成功, debugPort=29222, pageCount=2
+2026-04-16 09:57:20,545 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=f5b540587a584d9283c04d19cfced583, rootPageId=4, launchedNow=True
+2026-04-16 09:57:39,266 ERROR app.browser.manager browser-service_0 open_window失败, windowId=cb087e9c1ca2472b99fed3409e2e4f46, msg=等待新页面出现超时, expectedUrl=about:blank
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 83, in open_window
+    page = self._acquire_window_root_page(browser_runtime, launched_now, settings.start_url or 'about:blank')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 544, in _acquire_window_root_page
+    return self._create_new_browser_window_page(browser_runtime, safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 537, in _create_new_browser_window_page
+    page = self._wait_for_new_page(browser_runtime.context, before_page_ids, expected_url=safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 657, in _wait_for_new_page
+    raise RuntimeError(f'等待新页面出现超时, expectedUrl={expected_url}')
+RuntimeError: 等待新页面出现超时, expectedUrl=about:blank
+2026-04-16 09:57:39,273 ERROR app.main MainThread RuntimeError: 打开浏览器窗口失败: RuntimeError: 等待新页面出现超时, expectedUrl=about:blank
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 83, in open_window
+    page = self._acquire_window_root_page(browser_runtime, launched_now, settings.start_url or 'about:blank')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 544, in _acquire_window_root_page
+    return self._create_new_browser_window_page(browser_runtime, safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 537, in _create_new_browser_window_page
+    page = self._wait_for_new_page(browser_runtime.context, before_page_ids, expected_url=safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 657, in _wait_for_new_page
+    raise RuntimeError(f'等待新页面出现超时, expectedUrl={expected_url}')
+RuntimeError: 等待新页面出现超时, expectedUrl=about:blank
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\api\browser.py", line 34, in open_window
+    data = await run_in_threadpool(browser_service.open_browser)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\concurrency.py", line 39, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 2518, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 1002, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 41, in open_browser
+    return self._execute(browser_session_manager.open_window)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 38, in _execute
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\software\python3.11.9\Lib\concurrent\futures\_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\software\python3.11.9\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\software\python3.11.9\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 33, in job
+    return func(db, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 110, in open_window
+    raise RuntimeError(f'打开浏览器窗口失败: {exc.__class__.__name__}: {exc}') from exc
+RuntimeError: 打开浏览器窗口失败: RuntimeError: 等待新页面出现超时, expectedUrl=about:blank
+2026-04-16 09:57:43,931 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=cede81b1306e4ef6aa080df43bb4981f, rootPageId=5, launchedNow=False
+2026-04-16 09:58:00,695 ERROR app.browser.manager browser-service_0 open_window失败, windowId=431729964da848afbac2e2d479b0bfcb, msg=等待新页面出现超时, expectedUrl=about:blank
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 83, in open_window
+    page = self._acquire_window_root_page(browser_runtime, launched_now, settings.start_url or 'about:blank')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 544, in _acquire_window_root_page
+    return self._create_new_browser_window_page(browser_runtime, safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 537, in _create_new_browser_window_page
+    page = self._wait_for_new_page(browser_runtime.context, before_page_ids, expected_url=safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 657, in _wait_for_new_page
+    raise RuntimeError(f'等待新页面出现超时, expectedUrl={expected_url}')
+RuntimeError: 等待新页面出现超时, expectedUrl=about:blank
+2026-04-16 09:58:00,699 ERROR app.main MainThread RuntimeError: 打开浏览器窗口失败: RuntimeError: 等待新页面出现超时, expectedUrl=about:blank
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 83, in open_window
+    page = self._acquire_window_root_page(browser_runtime, launched_now, settings.start_url or 'about:blank')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 544, in _acquire_window_root_page
+    return self._create_new_browser_window_page(browser_runtime, safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 537, in _create_new_browser_window_page
+    page = self._wait_for_new_page(browser_runtime.context, before_page_ids, expected_url=safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 657, in _wait_for_new_page
+    raise RuntimeError(f'等待新页面出现超时, expectedUrl={expected_url}')
+RuntimeError: 等待新页面出现超时, expectedUrl=about:blank
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\api\browser.py", line 34, in open_window
+    data = await run_in_threadpool(browser_service.open_browser)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\concurrency.py", line 39, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 2518, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 1002, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 41, in open_browser
+    return self._execute(browser_session_manager.open_window)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 38, in _execute
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\software\python3.11.9\Lib\concurrent\futures\_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\software\python3.11.9\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\software\python3.11.9\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 33, in job
+    return func(db, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 110, in open_window
+    raise RuntimeError(f'打开浏览器窗口失败: {exc.__class__.__name__}: {exc}') from exc
+RuntimeError: 打开浏览器窗口失败: RuntimeError: 等待新页面出现超时, expectedUrl=about:blank
+2026-04-16 12:50:56,083 INFO app.main MainThread auto-download-py 正在关闭，准备释放运行时浏览器连接
+2026-04-16 12:55:54,824 INFO app.core.asyncio_policy MainThread 已切换 asyncio event loop policy -> WindowsProactorEventLoopPolicy
+2026-04-16 12:55:54,851 INFO app.main MainThread auto-download-py 启动完成，contextPath=/auto-download, debugPort=29222, eventLoopPolicy=WindowsProactorEventLoopPolicy
+2026-04-16 12:56:04,545 INFO app.browser.manager browser-service_0 启动浏览器进程: ['C:/software/chrome-win64/chrome.exe', '--remote-debugging-port=29222', '--user-data-dir=C:/cache/chromeTest/auto-download/shared-profile', '--no-first-run', '--no-default-browser-check', 'about:blank']
+2026-04-16 12:56:04,558 INFO app.browser.manager browser-service_0 浏览器进程已启动, pid=27068
+2026-04-16 12:56:05,597 INFO app.browser.manager browser-service_0 CDP探测成功, versionUrl=http://127.0.0.1:29222/json/version, websocket=ws://127.0.0.1:29222/devtools/browser/1af2f2cd-d0da-411d-891e-63bda73c4951
+2026-04-16 12:56:05,597 INFO app.core.asyncio_policy browser-service_0 当前 asyncio event loop policy 已是 WindowsProactorEventLoopPolicy
+2026-04-16 12:56:05,597 INFO app.browser.manager browser-service_0 event loop policy检查, stage=before_sync_playwright_start, policy=WindowsProactorEventLoopPolicy
+2026-04-16 12:56:06,091 INFO app.browser.manager browser-service_0 浏览器运行时挂接成功, debugPort=29222, pageCount=3
+2026-04-16 12:56:06,108 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=20a3764eff454269a45f0c8dc59c05b4, rootPageId=6, launchedNow=True
+2026-04-16 12:56:08,530 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=9f6c403bad344e90bba70ab7d2d0b220, rootPageId=7, launchedNow=False
+2026-04-16 12:56:10,884 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=6fbcd4107c4743b7a96d2ca4488d26b0, rootPageId=8, launchedNow=False
+2026-04-17 21:25:01,670 INFO app.core.asyncio_policy MainThread 已切换 asyncio event loop policy -> WindowsProactorEventLoopPolicy
+2026-04-17 21:25:02,028 INFO app.main MainThread auto-download-py 启动完成，contextPath=/auto-download, debugPort=29222, eventLoopPolicy=WindowsProactorEventLoopPolicy
+2026-04-17 21:25:13,338 INFO app.browser.manager browser-service_0 启动浏览器进程: ['C:/software/chrome-win64/chrome.exe', '--remote-debugging-port=29222', '--user-data-dir=C:/cache/chromeTest/auto-download/shared-profile', '--no-first-run', '--no-default-browser-check', 'about:blank']
+2026-04-17 21:25:14,019 INFO app.browser.manager browser-service_0 浏览器进程已启动, pid=40820
+2026-04-17 21:25:15,065 INFO app.browser.manager browser-service_0 CDP探测成功, versionUrl=http://127.0.0.1:29222/json/version, websocket=ws://127.0.0.1:29222/devtools/browser/d15c4d0f-fe78-47e0-9360-cb7c1353418c
+2026-04-17 21:25:15,066 INFO app.core.asyncio_policy browser-service_0 当前 asyncio event loop policy 已是 WindowsProactorEventLoopPolicy
+2026-04-17 21:25:15,066 INFO app.browser.manager browser-service_0 event loop policy检查, stage=before_sync_playwright_start, policy=WindowsProactorEventLoopPolicy
+2026-04-17 21:25:16,722 INFO app.browser.manager browser-service_0 浏览器运行时挂接成功, debugPort=29222, pageCount=4
+2026-04-17 21:25:16,751 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=a696e5f2e05f43cd8731e8fabab2dc2b, rootPageId=9, launchedNow=True
+2026-04-17 21:40:33,472 ERROR app.browser.manager browser-service_0 open_window失败, windowId=8a203e09840047c792970521fdab8cc2, msg=CDPSession.send: Target page, context or browser has been closed
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 83, in open_window
+    page = self._acquire_window_root_page(browser_runtime, launched_now, settings.start_url or 'about:blank')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 544, in _acquire_window_root_page
+    return self._create_new_browser_window_page(browser_runtime, safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 529, in _create_new_browser_window_page
+    browser_runtime.browser_cdp.send(
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\sync_api\_generated.py", line 13661, in send
+    self._sync(
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_cdp_session.py", line 32, in send
+    return await self._channel.send("send", None, locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 558, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TargetClosedError: CDPSession.send: Target page, context or browser has been closed
+2026-04-17 21:40:33,480 ERROR app.main MainThread RuntimeError: 打开浏览器窗口失败: TargetClosedError: CDPSession.send: Target page, context or browser has been closed
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 83, in open_window
+    page = self._acquire_window_root_page(browser_runtime, launched_now, settings.start_url or 'about:blank')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 544, in _acquire_window_root_page
+    return self._create_new_browser_window_page(browser_runtime, safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 529, in _create_new_browser_window_page
+    browser_runtime.browser_cdp.send(
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\sync_api\_generated.py", line 13661, in send
+    self._sync(
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_cdp_session.py", line 32, in send
+    return await self._channel.send("send", None, locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 558, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TargetClosedError: CDPSession.send: Target page, context or browser has been closed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\api\browser.py", line 34, in open_window
+    data = await run_in_threadpool(browser_service.open_browser)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\concurrency.py", line 39, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 2518, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 1002, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 41, in open_browser
+    return self._execute(browser_session_manager.open_window)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 38, in _execute
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\software\python3.11.9\Lib\concurrent\futures\_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\software\python3.11.9\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\software\python3.11.9\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 33, in job
+    return func(db, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 110, in open_window
+    raise RuntimeError(f'打开浏览器窗口失败: {exc.__class__.__name__}: {exc}') from exc
+RuntimeError: 打开浏览器窗口失败: TargetClosedError: CDPSession.send: Target page, context or browser has been closed
+2026-04-17 21:40:40,720 ERROR app.browser.manager browser-service_0 open_window失败, windowId=d3b2320c7ce94f3c831cbc74dc0e23fc, msg=CDPSession.send: Target page, context or browser has been closed
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 83, in open_window
+    page = self._acquire_window_root_page(browser_runtime, launched_now, settings.start_url or 'about:blank')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 544, in _acquire_window_root_page
+    return self._create_new_browser_window_page(browser_runtime, safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 529, in _create_new_browser_window_page
+    browser_runtime.browser_cdp.send(
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\sync_api\_generated.py", line 13661, in send
+    self._sync(
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_cdp_session.py", line 32, in send
+    return await self._channel.send("send", None, locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 558, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TargetClosedError: CDPSession.send: Target page, context or browser has been closed
+2026-04-17 21:40:40,724 ERROR app.main MainThread RuntimeError: 打开浏览器窗口失败: TargetClosedError: CDPSession.send: Target page, context or browser has been closed
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 83, in open_window
+    page = self._acquire_window_root_page(browser_runtime, launched_now, settings.start_url or 'about:blank')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 544, in _acquire_window_root_page
+    return self._create_new_browser_window_page(browser_runtime, safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 529, in _create_new_browser_window_page
+    browser_runtime.browser_cdp.send(
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\sync_api\_generated.py", line 13661, in send
+    self._sync(
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_cdp_session.py", line 32, in send
+    return await self._channel.send("send", None, locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 558, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TargetClosedError: CDPSession.send: Target page, context or browser has been closed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\api\browser.py", line 34, in open_window
+    data = await run_in_threadpool(browser_service.open_browser)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\concurrency.py", line 39, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 2518, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 1002, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 41, in open_browser
+    return self._execute(browser_session_manager.open_window)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 38, in _execute
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\software\python3.11.9\Lib\concurrent\futures\_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\software\python3.11.9\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\software\python3.11.9\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 33, in job
+    return func(db, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 110, in open_window
+    raise RuntimeError(f'打开浏览器窗口失败: {exc.__class__.__name__}: {exc}') from exc
+RuntimeError: 打开浏览器窗口失败: TargetClosedError: CDPSession.send: Target page, context or browser has been closed
+2026-04-17 21:40:51,877 ERROR app.browser.manager browser-service_0 open_window失败, windowId=9e8b210040d543fbb6033078ac618b7e, msg=CDPSession.send: Target page, context or browser has been closed
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 83, in open_window
+    page = self._acquire_window_root_page(browser_runtime, launched_now, settings.start_url or 'about:blank')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 544, in _acquire_window_root_page
+    return self._create_new_browser_window_page(browser_runtime, safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 529, in _create_new_browser_window_page
+    browser_runtime.browser_cdp.send(
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\sync_api\_generated.py", line 13661, in send
+    self._sync(
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_cdp_session.py", line 32, in send
+    return await self._channel.send("send", None, locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 558, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TargetClosedError: CDPSession.send: Target page, context or browser has been closed
+2026-04-17 21:40:51,880 ERROR app.main MainThread RuntimeError: 打开浏览器窗口失败: TargetClosedError: CDPSession.send: Target page, context or browser has been closed
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 83, in open_window
+    page = self._acquire_window_root_page(browser_runtime, launched_now, settings.start_url or 'about:blank')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 544, in _acquire_window_root_page
+    return self._create_new_browser_window_page(browser_runtime, safe_url)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 529, in _create_new_browser_window_page
+    browser_runtime.browser_cdp.send(
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\sync_api\_generated.py", line 13661, in send
+    self._sync(
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_sync_base.py", line 115, in _sync
+    return task.result()
+           ^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_cdp_session.py", line 32, in send
+    return await self._channel.send("send", None, locals_to_params(locals()))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 69, in send
+    return await self._connection.wrap_api_call(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\playwright\_impl\_connection.py", line 558, in wrap_api_call
+    raise rewrite_error(error, f"{parsed_st['apiName']}: {error}") from None
+playwright._impl._errors.TargetClosedError: CDPSession.send: Target page, context or browser has been closed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\_exception_handler.py", line 51, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\routing.py", line 73, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\fastapi\routing.py", line 301, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\fastapi\routing.py", line 212, in run_endpoint_function
+    return await dependant.call(**values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\api\browser.py", line 34, in open_window
+    data = await run_in_threadpool(browser_service.open_browser)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\starlette\concurrency.py", line 39, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 2518, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\.venv\Lib\site-packages\anyio\_backends\_asyncio.py", line 1002, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 41, in open_browser
+    return self._execute(browser_session_manager.open_window)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 38, in _execute
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\software\python3.11.9\Lib\concurrent\futures\_base.py", line 456, in result
+    return self.__get_result()
+           ^^^^^^^^^^^^^^^^^^^
+  File "C:\software\python3.11.9\Lib\concurrent\futures\_base.py", line 401, in __get_result
+    raise self._exception
+  File "C:\software\python3.11.9\Lib\concurrent\futures\thread.py", line 58, in run
+    result = self.fn(*self.args, **self.kwargs)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\services\browser_service.py", line 33, in job
+    return func(db, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\code\py\auto-download-py\app\browser\manager.py", line 110, in open_window
+    raise RuntimeError(f'打开浏览器窗口失败: {exc.__class__.__name__}: {exc}') from exc
+RuntimeError: 打开浏览器窗口失败: TargetClosedError: CDPSession.send: Target page, context or browser has been closed
+2026-04-17 21:41:43,133 INFO app.main MainThread auto-download-py 正在关闭，准备释放运行时浏览器连接
+2026-04-17 22:42:46,335 INFO app.core.asyncio_policy MainThread 已切换 asyncio event loop policy -> WindowsProactorEventLoopPolicy
+2026-04-17 22:42:46,355 INFO app.main MainThread auto-download-py 启动完成，contextPath=/auto-download, debugPort=29222, eventLoopPolicy=WindowsProactorEventLoopPolicy
+2026-04-17 22:42:51,968 INFO app.browser.manager browser-service_0 启动浏览器进程: ['C:/software/chrome-win64/chrome.exe', '--remote-debugging-port=29222', '--user-data-dir=C:/cache/chromeTest/auto-download/shared-profile', '--no-first-run', '--no-default-browser-check', 'about:blank']
+2026-04-17 22:42:51,981 INFO app.browser.manager browser-service_0 浏览器进程已启动, pid=34944
+2026-04-17 22:42:52,996 INFO app.browser.manager browser-service_0 CDP探测成功, versionUrl=http://127.0.0.1:29222/json/version, websocket=ws://127.0.0.1:29222/devtools/browser/dc922dea-bf4b-49a1-8745-0430f3af5b7d
+2026-04-17 22:42:52,996 INFO app.core.asyncio_policy browser-service_0 当前 asyncio event loop policy 已是 WindowsProactorEventLoopPolicy
+2026-04-17 22:42:52,996 INFO app.browser.manager browser-service_0 event loop policy检查, stage=before_sync_playwright_start, policy=WindowsProactorEventLoopPolicy
+2026-04-17 22:42:53,373 INFO app.browser.manager browser-service_0 浏览器运行时挂接成功, debugPort=29222, pageCount=2
+2026-04-17 22:42:53,387 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=262b9e34cb1d48c09f37898f64153b54, rootPageId=10, launchedNow=True
+2026-04-17 22:42:58,926 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=9310f4e3c8a2467aa11dc02a932a6109, rootPageId=11, launchedNow=False
+2026-04-17 22:43:00,806 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=bfa7ad55f4934c39b0d2778a93b27fd5, rootPageId=12, launchedNow=False
+2026-04-17 22:43:01,899 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=014a4f3107504e1796f784e5577b9667, rootPageId=13, launchedNow=False
+2026-04-17 22:43:08,941 INFO app.browser.manager browser-service_0 启动浏览器进程: ['C:/software/chrome-win64/chrome.exe', '--remote-debugging-port=29222', '--user-data-dir=C:/cache/chromeTest/auto-download/shared-profile', '--no-first-run', '--no-default-browser-check', 'about:blank']
+2026-04-17 22:43:08,954 INFO app.browser.manager browser-service_0 浏览器进程已启动, pid=35932
+2026-04-17 22:43:09,971 INFO app.browser.manager browser-service_0 CDP探测成功, versionUrl=http://127.0.0.1:29222/json/version, websocket=ws://127.0.0.1:29222/devtools/browser/3932d247-e1a4-40b4-981d-9cc40ebacbd2
+2026-04-17 22:43:09,972 INFO app.core.asyncio_policy browser-service_0 当前 asyncio event loop policy 已是 WindowsProactorEventLoopPolicy
+2026-04-17 22:43:09,972 INFO app.browser.manager browser-service_0 event loop policy检查, stage=before_sync_playwright_start, policy=WindowsProactorEventLoopPolicy
+2026-04-17 22:43:10,334 INFO app.browser.manager browser-service_0 浏览器运行时挂接成功, debugPort=29222, pageCount=2
+2026-04-17 22:43:10,355 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=62896cb49bee492b9757381ff5144f53, rootPageId=14, launchedNow=True
+2026-04-17 22:43:12,930 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=ba90a0e8f0d5459ebdde4cb58c8fb9ae, rootPageId=15, launchedNow=False
+2026-04-17 22:43:18,656 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=f3759d753307498c8a58f34083084427, rootPageId=16, launchedNow=False
+2026-04-17 22:43:22,435 INFO app.browser.manager browser-service_0 启动浏览器进程: ['C:/software/chrome-win64/chrome.exe', '--remote-debugging-port=29222', '--user-data-dir=C:/cache/chromeTest/auto-download/shared-profile', '--no-first-run', '--no-default-browser-check', 'about:blank']
+2026-04-17 22:43:22,449 INFO app.browser.manager browser-service_0 浏览器进程已启动, pid=44892
+2026-04-17 22:43:23,465 INFO app.browser.manager browser-service_0 CDP探测成功, versionUrl=http://127.0.0.1:29222/json/version, websocket=ws://127.0.0.1:29222/devtools/browser/5df3aaa9-df67-4673-87d0-8b5d791bfb4c
+2026-04-17 22:43:23,466 INFO app.core.asyncio_policy browser-service_0 当前 asyncio event loop policy 已是 WindowsProactorEventLoopPolicy
+2026-04-17 22:43:23,466 INFO app.browser.manager browser-service_0 event loop policy检查, stage=before_sync_playwright_start, policy=WindowsProactorEventLoopPolicy
+2026-04-17 22:43:23,833 INFO app.browser.manager browser-service_0 浏览器运行时挂接成功, debugPort=29222, pageCount=2
+2026-04-17 22:43:23,844 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=f453cc355a94470ea015869561ff6fcb, rootPageId=17, launchedNow=True
+2026-04-17 22:47:04,976 INFO app.browser.manager browser-service_0 takeoverPageInfo成功, windowId=f453cc355a94470ea015869561ff6fcb, pageId=page-18, title=Nice-Tab Admin Page, url=chrome-extension://fonflmjnjbkigocpoommgmhljdpljain/options.html#/settings
+2026-04-17 22:47:10,706 INFO app.browser.manager browser-service_0 takeoverPageInfo成功, windowId=f453cc355a94470ea015869561ff6fcb, pageId=page-18, title=Nice-Tab Admin Page, url=chrome-extension://fonflmjnjbkigocpoommgmhljdpljain/options.html#/settings
+2026-04-17 22:47:13,788 INFO app.browser.manager browser-service_0 takeoverPageInfo成功, windowId=f453cc355a94470ea015869561ff6fcb, pageId=page-18, title=Nice-Tab Admin Page, url=chrome-extension://fonflmjnjbkigocpoommgmhljdpljain/options.html#/settings
+2026-04-17 22:47:37,841 INFO app.browser.manager browser-service_0 takeoverPageInfo成功, windowId=f453cc355a94470ea015869561ff6fcb, pageId=page-17, title=搜尋 - Microsoft Bing, url=https://cn.bing.com/
+2026-04-17 22:47:43,787 INFO app.browser.manager browser-service_0 takeoverPageInfo成功, windowId=f453cc355a94470ea015869561ff6fcb, pageId=page-17, title=搜尋 - Microsoft Bing, url=https://cn.bing.com/
+2026-04-17 23:10:26,094 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=7f887e807eca40f2959a7d1fa2ac1e9e, rootPageId=19, launchedNow=False
+2026-04-17 23:11:27,584 INFO app.browser.manager browser-service_0 takeoverPageInfo成功, windowId=7f887e807eca40f2959a7d1fa2ac1e9e, pageId=page-20, title=搜尋 - Microsoft Bing, url=https://cn.bing.com/
+2026-04-22 11:54:39,636 INFO app.core.asyncio_policy MainThread 已切换 asyncio event loop policy -> WindowsProactorEventLoopPolicy
+2026-04-22 11:54:39,778 INFO app.main MainThread auto-download-py 启动完成，contextPath=/auto-download, debugPort=29222, eventLoopPolicy=WindowsProactorEventLoopPolicy
+2026-04-30 12:03:11,843 INFO app.core.asyncio_policy MainThread 当前 asyncio event loop policy 已是 WindowsProactorEventLoopPolicy
+2026-04-30 12:04:05,761 INFO app.core.asyncio_policy MainThread 当前 asyncio event loop policy 已是 WindowsProactorEventLoopPolicy
+2026-04-30 12:04:16,462 INFO app.core.asyncio_policy MainThread 当前 asyncio event loop policy 已是 WindowsProactorEventLoopPolicy
+2026-05-06 10:24:54,047 INFO app.core.asyncio_policy MainThread 已切换 asyncio event loop policy -> WindowsProactorEventLoopPolicy
+2026-05-06 10:24:54,477 INFO app.main MainThread auto-download-py 启动完成，contextPath=/auto-download, debugPort=29222, eventLoopPolicy=WindowsProactorEventLoopPolicy
+2026-05-06 11:06:34,574 INFO app.browser.manager browser-service_0 启动浏览器进程: ['C:/software/chrome-win64/chrome.exe', '--remote-debugging-port=29222', '--user-data-dir=C:/cache/chromeTest/auto-download/shared-profile', '--no-first-run', '--no-default-browser-check', 'about:blank']
+2026-05-06 11:06:35,103 INFO app.browser.manager browser-service_0 浏览器进程已启动, pid=46184
+2026-05-06 11:06:36,130 INFO app.browser.manager browser-service_0 CDP探测成功, versionUrl=http://127.0.0.1:29222/json/version, websocket=ws://127.0.0.1:29222/devtools/browser/aa0f96c4-6469-4d2a-9908-10960b12fb23
+2026-05-06 11:06:36,130 INFO app.core.asyncio_policy browser-service_0 当前 asyncio event loop policy 已是 WindowsProactorEventLoopPolicy
+2026-05-06 11:06:36,131 INFO app.browser.manager browser-service_0 event loop policy检查, stage=before_sync_playwright_start, policy=WindowsProactorEventLoopPolicy
+2026-05-06 11:06:37,618 INFO app.browser.manager browser-service_0 浏览器运行时挂接成功, debugPort=29222, pageCount=2
+2026-05-06 11:06:37,645 INFO app.browser.manager browser-service_0 打开窗口成功, windowId=d56351af46854be48d048b10a7e598e7, rootPageId=21, launchedNow=True
+2026-05-06 11:42:27,576 INFO app.main MainThread auto-download-py 正在关闭，准备释放运行时浏览器连接
+2026-05-06 15:08:02,503 INFO app.core.asyncio_policy MainThread 已切换 asyncio event loop policy -> WindowsProactorEventLoopPolicy
+2026-05-06 15:08:02,602 INFO app.main MainThread auto-download-py 启动完成，contextPath=/auto-download, debugPort=29222, eventLoopPolicy=WindowsProactorEventLoopPolicy
+2026-05-07 09:11:16,140 INFO app.core.asyncio_policy MainThread 已切换 asyncio event loop policy -> WindowsProactorEventLoopPolicy
+2026-05-07 09:11:16,343 INFO app.main MainThread auto-download-py 启动完成，contextPath=/auto-download, debugPort=29222, eventLoopPolicy=WindowsProactorEventLoopPolicy
