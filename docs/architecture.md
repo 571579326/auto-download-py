@@ -2,41 +2,94 @@
 
 ## 项目定位
 
-`auto-download-py` 是一个 Python 3.11 / Windows 自动化服务。它同时支持两种入口：
+`auto-download-py` 是一个 Python 3.11 / Windows 混合自动化服务。它同时支持两种入口：
 
-- 本地 Python 代码直接调用 `app/services/*.py`。
-- 外部系统、未来前端或 Chrome 扩展通过 FastAPI HTTP API 调用。
+- **本地 Python 代码**直接调用 `app/services/*.py`。
+- **外部系统、未来前端或 Chrome 扩展**通过 FastAPI HTTP API 调用。
 
 当前仓库没有 Vue 页面，也没有 Java controller/service/mapper/xml。`browser-extension/` 是未来 Chrome 扩展预留目录，不是当前前端实现。
 
-## 分层
+## 整体架构分层
 
-```text
-HTTP 调用方 / 未来前端
-  -> app/api/*.py
-  -> app/services/*.py
-  -> app/browser | app/desktop | app/visual
-  -> 外部自动化库 / 数据库
-```
+项目分为 4 层，从上到下依次是：
+
+1. **API 层** (`app/api/*.py`) — FastAPI Router (async)，负责参数接收、schema 绑定、通过 `run_in_threadpool` 转调 Service、封装 `Result[T]` 响应
+2. **Service 层** (`app/services/*.py`) — 业务服务层，也是本地调用入口；隔离 API 层与核心实现，管理线程池和数据库会话
+3. **运行时层** — 包括浏览器管理器 (`app/browser/manager.py`, Playwright+CDP)、桌面窗口管理 (`app/desktop/windows_manager.py`, pywinauto)、图像/屏幕操作 (`app/visual/screen_manager.py`, pyautogui/OpenCV)
+4. **外部基础设施** — Playwright / CDP / pywinauto / pyautogui / MySQL
 
 本地 Python 调用方直接从 `app/services/*.py` 进入，不经过 HTTP API。
 
-| 层级 | 目录 | 职责 |
-| --- | --- | --- |
-| API 层 | `app/api` | FastAPI router，接收参数，绑定 schema，返回 `Result` |
-| service 层 | `app/services` | 本地业务调用入口，隔离 API 和核心实现 |
-| 浏览器运行时 | `app/browser` | Playwright + CDP，窗口/页面运行时和持久化同步 |
-| 桌面窗口 | `app/desktop` | pywinauto 窗口枚举与激活 |
-| 图像/屏幕 | `app/visual` | pyautogui 坐标点击、模板图点击、OCR 预留 |
-| schema | `app/schemas` | Pydantic 请求/响应模型 |
-| 数据库 | `app/models`、`sql` | SQLAlchemy model 和 MySQL 初始化脚本 |
+## 模块职责详表
+
+| 层级 | 目录 | 核心文件 | 职责 |
+| --- | --- | --- | --- |
+| **启动入口** | `app/` | `main.py` | FastAPI 应用创建、路由挂载、异常处理器注册、生命周期管理 |
+| **API 层** | `app/api` | `browser.py` | 浏览器 HTTP API 路由（15+ 接口） |
+| | | `desktop.py` | 桌面/屏幕 HTTP API 路由（8 个接口） |
+| | | `health.py` | 健康检查接口 `GET /health` |
+| **Service 层** | `app/services` | `browser_service.py` | 浏览器业务服务，管理单线程 ThreadPoolExecutor + DB Session |
+| | | `desktop_service.py` | 桌面窗口服务，封装 windows_manager + pyautogui 键盘操作 |
+| | | `visual_service.py` | 图像/屏幕服务，透传调用 screen_manager |
+| **浏览器运行时** | `app/browser` | `manager.py` | Playwright + CDP 浏览器进程管理、窗口/页面运行时与数据库同步 |
+| **桌面窗口** | `app/desktop` | `windows_manager.py` | pywinauto 窗口枚举、过滤、激活 |
+| **图像/屏幕** | `app/visual` | `screen_manager.py` | pyautogui 坐标点击、模板图匹配点击、OCR 点击预留 |
+| **Schema** | `app/schemas` | `common.py` | 通用响应模型 `Result[T]` |
+| | | `browser.py` | 浏览器请求/响应 Pydantic 模型（16 个） |
+| | | `desktop.py` | 桌面/屏幕请求/响应 Pydantic 模型（16 个） |
+| **数据模型** | `app/models` | `browser_window.py` | `AdBrowserWindow` ORM 模型 |
+| | | `browser_page.py` | `AdBrowserPage` ORM 模型 |
+| | | `browser_page_config.py` | `AdBrowserPageConfig` ORM 模型 |
+| **数据库** | `app/db` | `session.py` | SQLAlchemy engine/SessionLocal 创建 |
+| | | `base.py` | `DeclarativeBase` 基类 |
+| **核心配置** | `app/core` | `config.py` | `Settings` 模型（pydantic-settings），读取 `.env` |
+| | | `logging_config.py` | 日志配置（控制台 + RotatingFileHandler） |
+| | | `asyncio_policy.py` | Windows 下强制 ProactorEventLoopPolicy |
+| **工具** | `app/utils` | `port_utils.py` | 端口检测工具函数 |
+| | | `http_utils.py` | HTTP GET JSON 工具函数 |
+| **数据库脚本** | `sql/` | `auto_download.sql` | MySQL 初始化 DDL（3 张表） |
+| **示例脚本** | `scripts/` | `demo_browser.py` | 浏览器自动化本地调用示例 |
+| | | `demo_desktop.py` | 桌面自动化本地调用示例 |
+| | | `demo_hybrid.py` | 浏览器+桌面混合自动化示例 |
+| | | `local_service_demo.py` | 本地 service 综合使用示例 |
+| | | `smoke_test.py` | HTTP API 冒烟测试脚本 |
+
+## 调用链路详解
+
+### 浏览器链路
+
+`app/api/browser.py` (async) → `run_in_threadpool()` → `app/services/browser_service.py` (单线程 ThreadPoolExecutor) → 创建 `SessionLocal()` → `app/browser/manager.py` (BrowserSessionManager) → Playwright Sync API + CDP + SQLAlchemy → 关闭 `SessionLocal()`
+
+浏览器 API 层是 `async`，但 Playwright 使用同步 API。API 层必须使用 `run_in_threadpool()` 调 service，避免在 asyncio event loop 中直接执行同步 Playwright 操作。
+
+`BrowserService` 内部用单线程 `ThreadPoolExecutor(max_workers=1)` 串行执行浏览器任务。每次调用都会创建 `SessionLocal()`，交给 `BrowserSessionManager` 执行业务和数据库同步，最后关闭数据库会话。
+
+### 桌面窗口链路
+
+`app/api/desktop.py` → `run_in_threadpool()` → `app/services/desktop_service.py` → 窗口列举/激活走 `app/desktop/windows_manager.py` (pywinauto)；文本输入/组合键在 service 内部直接使用 pyautogui
+
+桌面能力按 Windows 设计。`type_text()` 和 `hotkey()` 使用 `pyautogui` 发送全局键盘事件，调用前应先确保目标窗口已激活。
+
+### 图像/屏幕链路
+
+`app/api/desktop.py` → `run_in_threadpool()` → `app/services/visual_service.py` → `app/visual/screen_manager.py` → pyautogui / OpenCV / Pillow
+
+图像点击依赖屏幕截图与模板匹配，容易受 DPI 缩放、主题、分辨率和遮挡影响。OCR 点击当前只是预留接口，不默认安装或接入 `cnocr`。
+
+### 本地 Python 直接调用链路
+
+`本地业务脚本 / scripts/*.py` → `app/services/*_service.py` → `manager/runtime 层`
+
+本地调用不经过 `app/api/*`。业务代码不要直接 import API 层，也不要直接管理 `SessionLocal()`。
 
 ## 路由前缀
 
 FastAPI app 在 `app/main.py` 中挂载路由：
 
-```text
-app.include_router(..., prefix=settings.app_context_path)
+```python
+app.include_router(health_router, prefix=settings.app_context_path)
+app.include_router(browser_router, prefix=settings.app_context_path)
+app.include_router(desktop_router, prefix=settings.app_context_path)
 ```
 
 默认 `APP_CONTEXT_PATH=/auto-download`，因此接口完整路径是：
@@ -49,51 +102,66 @@ app.include_router(..., prefix=settings.app_context_path)
 
 如果 `.env` 中修改 `APP_CONTEXT_PATH`，文档中的 `/auto-download` 前缀需要对应替换。
 
-## 浏览器链路
+## 异常处理
 
-```text
-app/api/browser.py
-  -> app/services/browser_service.py
-  -> app/browser/manager.py
-  -> Playwright Sync API + CDP
-  -> SQLAlchemy SessionLocal
-  -> ad_browser_window / ad_browser_page
-```
+在 `app/main.py` 中统一注册了三个异常处理器：
 
-浏览器 API 层是 `async`，但 Playwright 使用同步 API。API 层必须使用 `run_in_threadpool()` 调 service，避免在 asyncio event loop 中直接执行同步 Playwright 操作。
+| 异常类型 | HTTP 状态码 | 响应格式 | 说明 |
+| --- | --- | --- | --- |
+| `ValueError` | 400 | `{code: 400, message: "...", data: null}` | 参数校验/业务逻辑异常 |
+| `RuntimeError` | 500 | `{code: 500, message: "...", data: null}` | 运行时错误，自动记录日志 |
+| `Exception` | 500 | `{code: 500, message: "...", data: null}` | 未捕获异常，自动记录日志 |
 
-`BrowserService` 内部用单线程 `ThreadPoolExecutor(max_workers=1)` 串行执行浏览器任务。每次调用都会创建 `SessionLocal()`，交给 `BrowserSessionManager` 执行业务和数据库同步，最后关闭数据库会话。
+## 数据库模型
 
-## 桌面窗口链路
+### ad_browser_window
+浏览器窗口记录，通过 `window_id` (UUID hex) 业务标识唯一。
 
-```text
-app/api/desktop.py
-  -> app/services/desktop_service.py
-  -> app/desktop/windows_manager.py
-  -> pywinauto
-```
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | BIGINT (PK) | 自增主键 |
+| `window_id` | VARCHAR(64) UNIQUE | 业务窗口 ID (UUID hex) |
+| `status` | CHAR(1) | 1=有效, 0=失效 |
+| `last_page_title` | VARCHAR(255) | 最后激活页面标题 |
+| `last_page_url` | VARCHAR(500) | 最后激活页面 URL |
 
-桌面能力按 Windows 设计。`type_text()` 和 `hotkey()` 使用 `pyautogui` 发送全局键盘事件，调用前应先确保目标窗口已激活。
+### ad_browser_page
+窗口内页面记录，通过 `window_id` 外键关联窗口。
 
-## 图像/屏幕链路
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | BIGINT (PK) | 自增主键 |
+| `window_id` | BIGINT (FK) | 关联 `ad_browser_window.id` |
+| `title` | VARCHAR(255) | 页面标题 |
+| `url` | VARCHAR(1000) | 页面 URL |
+| `status` | CHAR(1) | 0=非激活, 1=激活, 2=失效 |
+| `sort_no` | INT | 窗口内排序号 |
 
-```text
-app/api/desktop.py
-  -> app/services/visual_service.py
-  -> app/visual/screen_manager.py
-  -> pyautogui / OpenCV / Pillow
-```
+### ad_browser_page_config
+可复用的浏览器页面配置组，用于批量打开接口。
 
-图像点击依赖屏幕截图与模板匹配，容易受 DPI 缩放、主题、分辨率和遮挡影响。OCR 点击当前只是预留接口，不默认安装或接入 `cnocr`。
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `id` | BIGINT (PK) | 自增主键 |
+| `config_code` | VARCHAR(64) | 配置编码（分组标识） |
+| `config_name` | VARCHAR(255) | 配置名称 |
+| `page_name` | VARCHAR(255) | 页面名称 |
+| `url` | VARCHAR(1000) | 页面 URL |
+| `status` | CHAR(1) | 1=有效, 0=失效 |
+| `sort_no` | INT | 打开顺序 |
 
 ## 数据库边界
 
-当前只有浏览器窗口和页面状态落库：
+当前只有浏览器窗口和页面状态落库。桌面窗口、键盘输入、坐标点击、模板图点击当前不落库。后续如果要持久化这些能力，应先新增 model 和 SQL，再从对应 manager/service 明确写入边界。
 
-- `ad_browser_window`：窗口业务 ID、状态、最后激活页面标题和 URL。
-- `ad_browser_page`：页面标题、URL、状态、窗口内排序、失效时间。
+## 浏览器窗口与页面生命周期
 
-桌面窗口、键盘输入、坐标点击、模板图点击当前不落库。后续如果要持久化这些能力，应先新增 model 和 SQL，再从对应 manager/service 明确写入边界。
+- `open_window()`: 创建窗口记录 (status=1) → 启动浏览器进程 → 挂接 CDP → 创建根页面 → 加入 page_map
+- `new_tab()`: 创建子页面 → 加入 page_map
+- `open_url()`: 导航或新建页面
+- `close_page()`: 标记 status=2, 关闭 Playwright Page, 从 page_map 移除
+- `reopen_window()`: 旧窗口失效, 创建新窗口, 恢复所有页面
+- `invalidate_window()`: 窗口 status=0, 所有页面 status=2, 清除 page_map, 关闭浏览器
 
 ## Batch page config persistence
 

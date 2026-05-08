@@ -6,11 +6,15 @@
 
 ## 文档索引
 
-- [架构说明](docs/architecture.md)：项目分层、运行时、数据库边界。
-- [API 调用链](docs/api-call-chain.md)：接口到 schema、service、manager、数据库/外部依赖的映射。
-- [开发指南](docs/development-guide.md)：新增能力时的固定改动顺序和约束。
-- [AGENT.md](AGENT.md)：给维护者或自动化代理使用的项目规则。
-- [skills/README.md](skills/README.md)：按能力拆分的维护说明。
+| 文档 | 说明 |
+| --- | --- |
+| [架构说明](docs/architecture.md) | 项目分层、模块职责、调用链路、数据模型 |
+| [关键类与函数说明](docs/key-classes-functions.md) | 核心类、函数、API 端点详细参考 |
+| [依赖关系](docs/dependency-graph.md) | 外部/内部依赖、数据流、线程模型 |
+| [API 调用链](docs/api-call-chain.md) | 接口到 schema、service、manager、数据库/外部依赖的映射 |
+| [开发指南](docs/development-guide.md) | 新增能力时的固定改动顺序和约束 |
+| [AGENT.md](AGENT.md) | 给维护者或自动化代理使用的项目规则 |
+| [skills/README.md](skills/README.md) | 按能力拆分的维护说明 |
 
 ## 目录结构
 

@@ -14,7 +14,9 @@
 ## 文档入口
 
 - `README.md`：项目入口、快速启动、API 总览。
-- `docs/architecture.md`：分层、路由前缀、运行时和数据库边界。
+- `docs/architecture.md`：分层、模块职责、路由前缀、运行时和数据库边界。
+- `docs/key-classes-functions.md`：核心类、函数、API 端点详细参考。
+- `docs/dependency-graph.md`：外部/内部依赖关系、数据流、线程模型。
 - `docs/api-call-chain.md`：接口到 schema、service、manager、外部依赖/数据库的映射。
 - `docs/development-guide.md`：新增能力时的固定改动顺序和约束。
 - `skills/*.md`：按能力拆分的维护说明。
