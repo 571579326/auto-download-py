@@ -3,9 +3,22 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import TypeVar
 
 from app.browser.manager import browser_session_manager
+from app.browser.rpa_locator_backend import rpa_locator_backend
 from app.db.session import SessionLocal
 
 from app.schemas.rpa import (
+    RpaElementAttributeRequest,
+    RpaElementClickRequest,
+    RpaElementInputRequest,
+    RpaElementOperationResponse,
+    RpaElementPressRequest,
+    RpaElementSelectRequest,
+    RpaElementTextRequest,
+    RpaLocatorCountRequest,
+    RpaLocatorCountResponse,
+    RpaLocatorDescribeRequest,
+    RpaLocatorFindRequest,
+    RpaLocatorFindResponse,
     RpaPageReloadRequest,
     RpaPageWaitLoadStateRequest,
     RpaPageWaitUrlRequest,
@@ -185,10 +198,7 @@ class BrowserService:
     def invalidate_window(self, window_id: str) -> InvalidateWindowResponse:
         return self._execute(browser_session_manager.invalidate_window, window_id)
 
-    def close_browser(self, window_id: str) -> InvalidateWindowResponse:
-        return self._execute(browser_session_manager.invalidate_window, window_id)
-
-    # ----------------------------- RPA page actions -----------------------------
+    # ----------------------------- RPA common actions -----------------------------
     def rpa_reconnect_page(
         self,
         window_id: str,
@@ -213,6 +223,50 @@ class BrowserService:
     def rpa_screenshot(self, request: RpaScreenshotRequest) -> RpaScreenshotResponse:
         """RPA动作：页面截图。"""
         return self._execute(browser_session_manager.rpa_screenshot, request)
+
+    def rpa_element_exists(self, request: RpaElementTextRequest) -> RpaElementOperationResponse:
+        """RPA动作：判断元素是否存在。"""
+        return self._execute(browser_session_manager.rpa_element_exists, request)
+
+    def rpa_element_click(self, request: RpaElementClickRequest) -> RpaElementOperationResponse:
+        """RPA动作：点击DOM元素。"""
+        return self._execute(browser_session_manager.rpa_element_click, request)
+
+    def rpa_element_input(self, request: RpaElementInputRequest) -> RpaElementOperationResponse:
+        """RPA动作：输入DOM元素。"""
+        return self._execute(browser_session_manager.rpa_element_input, request)
+
+    def rpa_element_text(self, request: RpaElementTextRequest) -> RpaElementOperationResponse:
+        """RPA动作：读取DOM文本。"""
+        return self._execute(browser_session_manager.rpa_element_text, request)
+
+    def rpa_element_attribute(self, request: RpaElementAttributeRequest) -> RpaElementOperationResponse:
+        """RPA动作：读取DOM属性。"""
+        return self._execute(browser_session_manager.rpa_element_attribute, request)
+
+    def rpa_element_press(self, request: RpaElementPressRequest) -> RpaElementOperationResponse:
+        """RPA动作：在DOM元素上按键。"""
+        return self._execute(browser_session_manager.rpa_element_press, request)
+
+    def rpa_element_select(self, request: RpaElementSelectRequest) -> RpaElementOperationResponse:
+        """RPA动作：选择下拉框。"""
+        return self._execute(browser_session_manager.rpa_element_select, request)
+
+
+    def rpa_locator_find(self, request: RpaLocatorFindRequest) -> RpaLocatorFindResponse:
+        """RPA动作：按多种条件查找网页 UI 元素。"""
+        return self._execute(rpa_locator_backend.find, request)
+
+    def rpa_locator_describe(self, request: RpaLocatorDescribeRequest) -> RpaLocatorFindResponse:
+        """RPA动作：描述 selector 命中的第一个元素。"""
+        return self._execute(rpa_locator_backend.describe, request)
+
+    def rpa_locator_count(self, request: RpaLocatorCountRequest) -> RpaLocatorCountResponse:
+        """RPA动作：统计 selector 命中数量。"""
+        return self._execute(rpa_locator_backend.count, request)
+
+    def close_browser(self, window_id: str) -> InvalidateWindowResponse:
+        return self._execute(browser_session_manager.invalidate_window, window_id)
 
 
 browser_service = BrowserService()

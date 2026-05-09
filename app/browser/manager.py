@@ -2,10 +2,10 @@ import asyncio
 import logging
 import os
 import subprocess
+from pathlib import Path
 import threading
 import time
 import uuid
-from pathlib import Path
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
@@ -39,6 +39,13 @@ from app.schemas.browser import (
 )
 
 from app.schemas.rpa import (
+    RpaElementAttributeRequest,
+    RpaElementClickRequest,
+    RpaElementInputRequest,
+    RpaElementOperationResponse,
+    RpaElementPressRequest,
+    RpaElementSelectRequest,
+    RpaElementTextRequest,
     RpaPageReloadRequest,
     RpaPageWaitLoadStateRequest,
     RpaPageWaitUrlRequest,
@@ -766,7 +773,7 @@ class BrowserSessionManager:
             )
             return response
 
-    # ----------------------------- RPA page helpers -----------------------------
+    # ----------------------------- RPA page/element helpers -----------------------------
     def _resolve_rpa_page(
         self,
         db: Session,
@@ -775,9 +782,17 @@ class BrowserSessionManager:
         page_id: str | None = None,
         url_contains: str | None = None,
     ) -> tuple[AdBrowserPage, Page]:
-        """解析 RPA 操作目标页。"""
+        """解析 RPA 操作目标页。
+
+        RPA 场景既可能操作本项目打开并记录的页面，也可能操作用户手动打开的页面。
+        因此这里的策略是：
+        1. pageId 明确传入时，只操作已记录页面；
+        2. 未传 pageId 时，优先使用已有活动页/URL 匹配页；
+        3. 已有记录不可用时，通过当前 CDP runtime 接管浏览器里实际存在的页面。
+        """
         if page_id:
             return self._resolve_managed_page(db, db_window, window_runtime, page_id, url_contains)
+
         try:
             return self._resolve_managed_page(db, db_window, window_runtime, None, url_contains)
         except Exception as managed_exc:
@@ -787,6 +802,7 @@ class BrowserSessionManager:
                 url_contains,
                 managed_exc,
             )
+
         page = self._resolve_takeover_page(window_runtime, url_contains)
         page_row = self._find_page_row_by_object(db, db_window, window_runtime, page)
         if page_row is None:
@@ -859,6 +875,144 @@ class BrowserSessionManager:
                 pageId=self._page_id_by_db_id(page_row.id),
                 title=page_row.title or '',
                 url=page_row.url or '',
+            )
+
+    def rpa_element_exists(self, db: Session, request: RpaElementTextRequest) -> RpaElementOperationResponse:
+        """RPA 公共动作：判断元素是否存在且可解析。"""
+        runtime, db_window = self._get_valid_window_runtime(db, request.windowId)
+        with runtime.lock:
+            page_row, page = self._resolve_rpa_page(db, db_window, runtime, request.pageId, request.urlContains)
+            exists = False
+            try:
+                page.locator(request.selector).first.wait_for(state='attached', timeout=request.timeoutMs)
+                exists = True
+            except Exception:
+                exists = False
+            self._sync_page_snapshot(db, page_row, page)
+            return RpaElementOperationResponse(
+                success=True,
+                selector=request.selector,
+                exists=exists,
+                message='元素存在' if exists else '元素不存在',
+                windowId=request.windowId,
+                pageId=self._page_id_by_db_id(page_row.id),
+            )
+
+    def rpa_element_click(self, db: Session, request: RpaElementClickRequest) -> RpaElementOperationResponse:
+        """RPA 公共动作：点击 DOM 元素。"""
+        runtime, db_window = self._get_valid_window_runtime(db, request.windowId)
+        with runtime.lock:
+            page_row, page = self._resolve_rpa_page(db, db_window, runtime, request.pageId, request.urlContains)
+            locator = page.locator(request.selector).first
+            locator.wait_for(state='visible', timeout=request.timeoutMs)
+            locator.click(
+                button=request.button,
+                click_count=request.clickCount,
+                delay=request.delayMs,
+                force=request.force,
+                timeout=request.timeoutMs,
+            )
+            self._sync_page_snapshot(db, page_row, page)
+            return RpaElementOperationResponse(
+                success=True,
+                selector=request.selector,
+                message='元素点击完成',
+                windowId=request.windowId,
+                pageId=self._page_id_by_db_id(page_row.id),
+            )
+
+    def rpa_element_input(self, db: Session, request: RpaElementInputRequest) -> RpaElementOperationResponse:
+        """RPA 公共动作：向 DOM 元素输入文本。"""
+        runtime, db_window = self._get_valid_window_runtime(db, request.windowId)
+        with runtime.lock:
+            page_row, page = self._resolve_rpa_page(db, db_window, runtime, request.pageId, request.urlContains)
+            locator = page.locator(request.selector).first
+            locator.wait_for(state='visible', timeout=request.timeoutMs)
+            if request.clearFirst:
+                locator.fill(request.text, timeout=request.timeoutMs)
+            else:
+                locator.type(request.text, timeout=request.timeoutMs)
+            if request.pressEnter:
+                locator.press('Enter', timeout=request.timeoutMs)
+            self._sync_page_snapshot(db, page_row, page)
+            return RpaElementOperationResponse(
+                success=True,
+                selector=request.selector,
+                message='元素输入完成',
+                value=request.text,
+                windowId=request.windowId,
+                pageId=self._page_id_by_db_id(page_row.id),
+            )
+
+    def rpa_element_text(self, db: Session, request: RpaElementTextRequest) -> RpaElementOperationResponse:
+        """RPA 公共动作：读取 DOM 元素文本。"""
+        runtime, db_window = self._get_valid_window_runtime(db, request.windowId)
+        with runtime.lock:
+            page_row, page = self._resolve_rpa_page(db, db_window, runtime, request.pageId, request.urlContains)
+            locator = page.locator(request.selector).first
+            locator.wait_for(state='attached', timeout=request.timeoutMs)
+            text = locator.inner_text(timeout=request.timeoutMs) if request.innerText else locator.text_content(timeout=request.timeoutMs)
+            self._sync_page_snapshot(db, page_row, page)
+            return RpaElementOperationResponse(
+                success=True,
+                selector=request.selector,
+                text=text or '',
+                message='元素文本读取完成',
+                windowId=request.windowId,
+                pageId=self._page_id_by_db_id(page_row.id),
+            )
+
+    def rpa_element_attribute(self, db: Session, request: RpaElementAttributeRequest) -> RpaElementOperationResponse:
+        """RPA 公共动作：读取 DOM 元素属性。"""
+        runtime, db_window = self._get_valid_window_runtime(db, request.windowId)
+        with runtime.lock:
+            page_row, page = self._resolve_rpa_page(db, db_window, runtime, request.pageId, request.urlContains)
+            locator = page.locator(request.selector).first
+            locator.wait_for(state='attached', timeout=request.timeoutMs)
+            value = locator.get_attribute(request.attributeName, timeout=request.timeoutMs)
+            self._sync_page_snapshot(db, page_row, page)
+            return RpaElementOperationResponse(
+                success=True,
+                selector=request.selector,
+                value=value,
+                message='元素属性读取完成',
+                windowId=request.windowId,
+                pageId=self._page_id_by_db_id(page_row.id),
+            )
+
+    def rpa_element_press(self, db: Session, request: RpaElementPressRequest) -> RpaElementOperationResponse:
+        """RPA 公共动作：在指定 DOM 元素上按键。"""
+        runtime, db_window = self._get_valid_window_runtime(db, request.windowId)
+        with runtime.lock:
+            page_row, page = self._resolve_rpa_page(db, db_window, runtime, request.pageId, request.urlContains)
+            locator = page.locator(request.selector).first
+            locator.wait_for(state='visible', timeout=request.timeoutMs)
+            locator.press(request.key, timeout=request.timeoutMs)
+            self._sync_page_snapshot(db, page_row, page)
+            return RpaElementOperationResponse(
+                success=True,
+                selector=request.selector,
+                message=f'元素按键完成: {request.key}',
+                windowId=request.windowId,
+                pageId=self._page_id_by_db_id(page_row.id),
+            )
+
+    def rpa_element_select(self, db: Session, request: RpaElementSelectRequest) -> RpaElementOperationResponse:
+        """RPA 公共动作：选择 select 元素的 option。"""
+        runtime, db_window = self._get_valid_window_runtime(db, request.windowId)
+        with runtime.lock:
+            page_row, page = self._resolve_rpa_page(db, db_window, runtime, request.pageId, request.urlContains)
+            locator = page.locator(request.selector).first
+            locator.wait_for(state='visible', timeout=request.timeoutMs)
+            selected = locator.select_option(request.values, timeout=request.timeoutMs)
+            self._sync_page_snapshot(db, page_row, page)
+            return RpaElementOperationResponse(
+                success=True,
+                selector=request.selector,
+                value=','.join(selected),
+                message='下拉框选择完成',
+                windowId=request.windowId,
+                pageId=self._page_id_by_db_id(page_row.id),
             )
 
     def reopen_window(self, db: Session, old_window_id: str) -> ReopenWindowResponse:
