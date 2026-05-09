@@ -13,6 +13,7 @@ from app.schemas.browser import (
     OpenConfiguredPagesRequest,
     OpenUrlRequest,
     OpenWindowResponse,
+    SeleniumOpenWindowResponse,
     PageInfoResponse,
     PageListResponse,
     ReopenWindowResponse,
@@ -42,6 +43,41 @@ class BrowserService:
     def open_browser(self) -> OpenWindowResponse:
         return self._execute(browser_session_manager.open_window)
 
+    def open_browser_pure(self, url: str | None = None, new_window: bool | None = None) -> OpenWindowResponse:
+        """纯净模式打开浏览器。
+
+        不复用 browser-service 单线程队列，不挂接 Playwright，不调用 CDP HTTP，
+        只按快捷方式等价命令启动 Chrome，避免 Cloudflare 保护页面受到自动化接管影响。
+        """
+        db = SessionLocal()
+        try:
+            return browser_session_manager.open_window_pure(db, url=url, new_window=new_window)
+        finally:
+            db.close()
+
+    def open_browser_selenium(
+        self,
+        url: str | None = None,
+        new_window: bool | None = None,
+        ensure_browser: bool = True,
+    ) -> SeleniumOpenWindowResponse:
+        """Selenium 短接管模式打开浏览器窗口。
+
+        先确保 chromeTest/Chrome 以 remote-debugging-port 方式运行，
+        再通过 Selenium debuggerAddress 附加、打开一个窗口或当前页，最后立刻 driver.quit() 断开。
+        不保存全局 driver，不进入 browser-service 单线程队列。
+        """
+        db = SessionLocal()
+        try:
+            return browser_session_manager.open_window_selenium(
+                db,
+                url=url,
+                new_window=new_window,
+                ensure_browser=ensure_browser,
+            )
+        finally:
+            db.close()
+
     def list_windows(self) -> WindowListResponse:
         return self._execute(browser_session_manager.list_windows)
 
@@ -53,6 +89,49 @@ class BrowserService:
 
     def open_config_pages(self, window_id: str, request: OpenConfiguredPagesRequest) -> BatchOpenPagesResponse:
         return self._execute(browser_session_manager.open_config_pages, window_id, request)
+
+    def open_config_pages_selenium_once(
+        self,
+        config_code: str,
+        new_window: bool | None = None,
+        ensure_browser: bool = True,
+    ) -> BatchOpenPagesResponse:
+        """Selenium 短接管打开配置页面。
+
+        不复用全局 Playwright runtime，不进入 browser-service 单线程队列，
+        打开完成后 Selenium driver 立即断开。
+        """
+        db = SessionLocal()
+        try:
+            return browser_session_manager.open_config_pages_selenium_once(
+                db,
+                config_code=config_code,
+                new_window=new_window,
+                ensure_browser=ensure_browser,
+            )
+        finally:
+            db.close()
+
+    def open_config_pages_playwright_once(
+        self,
+        config_code: str,
+        new_window: bool | None = None,
+        ensure_browser: bool = True,
+    ) -> BatchOpenPagesResponse:
+        """Playwright 短接管打开配置页面。
+
+        用于替代 page-flow 旧的长期 Playwright/CDP 接管流程。
+        """
+        db = SessionLocal()
+        try:
+            return browser_session_manager.open_config_pages_playwright_once(
+                db,
+                config_code=config_code,
+                new_window=new_window,
+                ensure_browser=ensure_browser,
+            )
+        finally:
+            db.close()
 
     def list_pages(self, window_id: str) -> PageListResponse:
         return self._execute(browser_session_manager.list_pages, window_id)

@@ -44,6 +44,20 @@ class OpenWindowResponse(BaseModel):
     debugPort: int
 
 
+class SeleniumOpenWindowResponse(BaseModel):
+    windowId: str
+    sessionId: str | None = None
+    status: str
+    userDataDir: str
+    debugPort: int
+    url: str | None = None
+    title: str | None = None
+    newWindow: bool = True
+    browserStartedNow: bool = False
+    driverDetached: bool = True
+    message: str | None = None
+
+
 class WindowSummary(BaseModel):
     windowId: str
     status: str
