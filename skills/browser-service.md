@@ -39,6 +39,8 @@
 默认带 `/auto-download` 前缀：
 
 - `POST /browser/session/open`
+- `POST /browser/session/open-pure`
+- `POST /browser/session/open-selenium`
 - `POST /browser/window/open`
 - `GET /browser/windows`
 - `POST /browser/tab/open`
@@ -65,11 +67,28 @@
 ## Chrome 扩展工具栏
 
 - `/browser/session/open` 通过 `chrome.exe --new-window` 创建原生 Chrome 窗口，再通过 CDP 接管页面。
-- `BROWSER_EXECUTABLE_PATH` 推荐指向正常安装版 Chrome；Chrome for Testing 的扩展工具栏行为需要手动验收。
-- `PROFILE_DIR` 必须是已经安装目标扩展的 profile，启动服务前不要让其他 Chrome 进程占用同一个 profile。
+- 当前默认按手动验证可用的快捷方式对齐：`BROWSER_EXECUTABLE_PATH=C:/software/chrome-win64/chrome.exe`、`PROFILE_DIR=C:/chrome_debug_profile`、`DEBUG_PORT=9222`。
+- `OPEN_PAGE_MODE=native` 时，创建窗口和子页面优先走 Chrome 原生命令行，不优先走 `Target.createTarget` 或 `window.open`。
+- `AUTO_CLICK_SECURITY_CHECK=false` 时，不自动点击 Cloudflare 等安全验证图片。
+- 不要使用日常 Chrome 默认用户目录作为 `PROFILE_DIR`。
+- `/browser/session/open-selenium` 使用 Selenium `debuggerAddress` 附加到 `127.0.0.1:DEBUG_PORT`，打开 URL 后立即 `driver.quit()` 断开，不保存全局 driver。
+- `SELENIUM_CHROMEDRIVER_PATH` 为空时走 Selenium Manager 自动处理 chromedriver；离线或自动下载失败时再填本机 chromedriver 路径。
 
 ## 注意
 
 FastAPI 路由层是 `async`，但浏览器 service 使用同步 Playwright 能力，所以 API 层必须使用 `run_in_threadpool()` 转调，避免在 asyncio loop 里直接执行 Playwright Sync API。
 
 `BrowserService` 负责创建数据库会话并调用 manager，不要把 `SessionLocal()` 暴露给 API 层或本地业务代码。
+
+## 当前推荐打开模式
+
+当前推荐使用 `OPEN_PAGE_MODE=cdp_http`。该模式只使用 Chrome DevTools HTTP 请求打开页面，不再等待 Playwright Page 对象、`domcontentloaded`、标题或 iframe 加载完成，适合需要配合桌面图像识别的网页验证场景。
+
+不要再优先使用 `OPEN_PAGE_MODE=native`，因为 native 模式会反复执行 `chrome.exe --new-window <url>`，在已有同 profile Chrome 实例时可能只是把请求转发给已有进程，导致页面肉眼已打开但 Playwright 无法在 `context.pages` 中识别新页面。
+
+## Cloudflare 场景短接管约定
+
+- `/biz/page-flow?configCode=...`：Playwright 短接管版。仅在打开配置页时临时连接 CDP，打开 URL 后立即断开，不长期保存 Playwright runtime。
+- `/biz/page-flow-selenium?configCode=...`：Selenium 短接管复现版。通过 `debuggerAddress=127.0.0.1:9222` 附加到已有 Chrome，打开页面后立即 `driver.quit()`。
+- 默认不读取页面标题、当前 URL，不等待 DOM、iframe 或 load。需要调试时再临时开启 `SELENIUM_READ_PAGE_INFO=true` 或 `PLAYWRIGHT_ONCE_READ_PAGE_INFO=true`。
+- Cloudflare 验证阶段优先使用纯净打开或 Selenium 短接管，不建议使用长期 Playwright/CDP 接管。

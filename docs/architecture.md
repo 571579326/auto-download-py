@@ -26,9 +26,11 @@
 | --- | --- | --- | --- |
 | **启动入口** | `app/` | `main.py` | FastAPI 应用创建、路由挂载、异常处理器注册、生命周期管理 |
 | **API 层** | `app/api` | `browser.py` | 浏览器 HTTP API 路由（15+ 接口） |
-| | | `desktop.py` | 桌面/屏幕 HTTP API 路由（8 个接口） |
+| | | `business.py` | 业务流程 HTTP API（page-flow 短接管版 + Selenium 复现版） |
+| | | `desktop.py` | 桌面/屏幕 HTTP API 路由（11+ 接口，含 click-images/click-ocr-text/keyboard 等） |
 | | | `health.py` | 健康检查接口 `GET /health` |
 | **Service 层** | `app/services` | `browser_service.py` | 浏览器业务服务，管理单线程 ThreadPoolExecutor + DB Session |
+| | | `business_service.py` | 业务流程服务（page-flow：打开配置页面 → 图像校验/点击） |
 | | | `desktop_service.py` | 桌面窗口服务，封装 windows_manager + pyautogui 键盘操作 |
 | | | `visual_service.py` | 图像/屏幕服务，透传调用 screen_manager |
 | **浏览器运行时** | `app/browser` | `manager.py` | Playwright + CDP 浏览器进程管理、窗口/页面运行时与数据库同步 |
@@ -46,7 +48,8 @@
 | | | `logging_config.py` | 日志配置（控制台 + RotatingFileHandler） |
 | | | `asyncio_policy.py` | Windows 下强制 ProactorEventLoopPolicy |
 | **工具** | `app/utils` | `port_utils.py` | 端口检测工具函数 |
-| | | `http_utils.py` | HTTP GET JSON 工具函数 |
+| | | `http_utils.py` | HTTP GET/PUT JSON 工具函数 |
+| | | `image_utils.py` | 图像点击工具函数（单图/多图/轮询/兼容旧版） |
 | **数据库脚本** | `sql/` | `auto_download.sql` | MySQL 初始化 DDL（3 张表） |
 | **示例脚本** | `scripts/` | `demo_browser.py` | 浏览器自动化本地调用示例 |
 | | | `demo_desktop.py` | 桌面自动化本地调用示例 |
@@ -89,6 +92,7 @@ FastAPI app 在 `app/main.py` 中挂载路由：
 ```python
 app.include_router(health_router, prefix=settings.app_context_path)
 app.include_router(browser_router, prefix=settings.app_context_path)
+app.include_router(business_router, prefix=settings.app_context_path)
 app.include_router(desktop_router, prefix=settings.app_context_path)
 ```
 
@@ -97,6 +101,7 @@ app.include_router(desktop_router, prefix=settings.app_context_path)
 ```text
 /auto-download/health
 /auto-download/browser/**
+/auto-download/biz/**
 /auto-download/desktop/**
 ```
 
