@@ -14,3 +14,4 @@
 - `page-operations.md`：标签页与页面定位规则。
 - `desktop-service.md`：桌面窗口、键盘、窗口激活扩展说明。
 - `visual-service.md`：坐标点击、模板图点击与 OCR 预留说明。
+- `business-image-click.md`：业务公共图像点击服务，封装循环查找/按规则点击/结果返回的公共逻辑。

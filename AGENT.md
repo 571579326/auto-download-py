@@ -20,6 +20,7 @@
 - `docs/api-call-chain.md`：接口到 schema、service、manager、外部依赖/数据库的映射。
 - `docs/development-guide.md`：新增能力时的固定改动顺序和约束。
 - `skills/*.md`：按能力拆分的维护说明。
+  - `skills/business-image-click.md`：业务公共图像点击服务说明。
 
 ## 当前架构
 
@@ -29,6 +30,7 @@
 - `app/services/*.py`
   - 本地业务代码直接调用入口。
   - API 层和本地调用方都应复用这里。
+  - `business_image_click_service.py`：业务公共图像点击服务，封装循环查找/按规则点击/结果返回的公共逻辑。
 - `app/browser/manager.py`
   - 浏览器运行时与会话管理。
   - Playwright + CDP。
@@ -119,6 +121,7 @@
 - 浏览器 service + API 双层结构。
 - 桌面 service + API 双层结构。
 - 图像/屏幕 service + API 双层结构。
+- 业务公共图像点击服务（BusinessImageClickService）。
 - 浏览器窗口和页面状态持久化。
 - OCR 点击接口预留。
 - uv 安装说明与脚本。

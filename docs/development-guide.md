@@ -54,6 +54,14 @@
 - 图像匹配失败时应返回足够排查的信息，例如模板路径、置信度、region、timeout。
 - OCR 当前是预留能力；真正接入 `cnocr` 时，应明确依赖安装、截图范围、文本匹配规则和点击坐标计算方式。
 
+## 新增业务图像点击能力
+
+改动顺序：
+
+1. 在 `app/services/business_image_click_service.py` 修改 BusinessImageClickOptions/BusinessImageClickResult 数据类或 BusinessImageClickService 方法。
+2. 在 `app/services/business_service.py` 更新调用方（如需调整结果消费逻辑）。
+3. 更新 `docs/api-call-chain.md` 和相关 skills 文档。
+
 ## API 命名和响应
 
 - 路由路径使用当前风格：`/browser/...`、`/desktop/...`。

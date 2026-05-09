@@ -46,10 +46,11 @@ app/
     desktop.py
     common.py
   services/
-    browser_service.py  # 本地浏览器 service
-    business_service.py # 本地业务流程 service
-    desktop_service.py  # 本地桌面 service
-    visual_service.py   # 本地图像/屏幕 service
+    browser_service.py              # 本地浏览器 service
+    business_service.py             # 本地业务流程 service
+    business_image_click_service.py # 业务公共图像点击服务
+    desktop_service.py              # 本地桌面 service
+    visual_service.py               # 本地图像/屏幕 service
   utils/
     http_utils.py       # HTTP 请求工具（get/put JSON）
     image_utils.py      # 图像点击工具函数（单图/多图/轮询）
