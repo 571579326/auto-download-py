@@ -1,6 +1,10 @@
 from pydantic import BaseModel, Field
 
 
+def _empty_str_list() -> list[str]:
+    return []
+
+
 class WindowQueryRequest(BaseModel):
     backend: str = Field(default='uia')
     titleContains: str | None = None
@@ -69,6 +73,9 @@ class ClickImageRequest(BaseModel):
     timeoutMs: int = 5000
     retryIntervalMs: int = 400
     moveDurationSeconds: float = 0.0
+    # 相对匹配到的图片区域左上角的点击偏移；两者都不传时点击匹配框中心点。
+    clickOffsetX: int | None = None
+    clickOffsetY: int | None = None
 
 
 class ClickImageResponse(BaseModel):
@@ -81,6 +88,36 @@ class ClickImageResponse(BaseModel):
     height: int
     imagePath: str
     confidence: float
+    # 实际点击坐标。未启用偏移时等于 centerX/centerY。
+    clickX: int | None = None
+    clickY: int | None = None
+
+
+class ClickImagesRequest(BaseModel):
+    imagePaths: list[str] = Field(default_factory=_empty_str_list)
+    imagePath: str | None = None
+    matchMode: str = 'or'
+    confidence: float = 0.9
+    regionLeft: int | None = None
+    regionTop: int | None = None
+    regionWidth: int | None = None
+    regionHeight: int | None = None
+    grayscale: bool = False
+    clicks: int = 1
+    intervalSeconds: float = 0.0
+    button: str = 'left'
+    timeoutMs: int = 5000
+    retryIntervalMs: int = 400
+    moveDurationSeconds: float = 0.0
+    # 相对匹配到的图片区域左上角的点击偏移；两者都不传时点击匹配框中心点。
+    clickOffsetX: int | None = None
+    clickOffsetY: int | None = None
+
+
+class ClickImagesResponse(BaseModel):
+    clicked: bool
+    matchMode: str
+    clickedImages: list[ClickImageResponse]
 
 
 class TypeTextRequest(BaseModel):

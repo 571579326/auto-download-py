@@ -9,6 +9,8 @@ from app.schemas.desktop import (
     ActivateWindowResponse,
     ClickImageRequest,
     ClickImageResponse,
+    ClickImagesRequest,
+    ClickImagesResponse,
     ClickPositionRequest,
     ClickPositionResponse,
     HotkeyRequest,
@@ -60,6 +62,12 @@ async def click_position(request: ClickPositionRequest = Body(...)):
 async def click_image(request: ClickImageRequest = Body(...)):
     data = await run_in_threadpool(visual_service.click_image, request)
     return Result(message='clickImage 成功', data=data)
+
+
+@router.post('/click/images', response_model=Result[ClickImagesResponse])
+async def click_images(request: ClickImagesRequest = Body(...)):
+    data = await run_in_threadpool(visual_service.click_images, request)
+    return Result(message='clickImages 成功', data=data)
 
 
 @router.post('/click/ocr-text', response_model=Result[OcrClickTextResponse])
