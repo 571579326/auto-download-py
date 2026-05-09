@@ -171,3 +171,19 @@ app.include_router(desktop_router, prefix=settings.app_context_path)
 ## Batch page config persistence
 
 `ad_browser_page_config` stores reusable browser page URL groups. The batch-open API reads rows by `config_code`, filters `status='1'`, orders by `sort_no,id`, and writes opened runtime pages back to `ad_browser_page`.
+
+## 业务公共方法层
+
+当前业务层按“接口入口 -> 公共业务编排 -> 专项能力服务”的方式组织：
+
+- `app/api/business.py`：只负责接收 `/biz/page-flow`、`/biz/page-flow-selenium` 参数，并调用 `BusinessService`。
+- `app/services/business_service.py`：保留业务入口方法，不直接堆叠打开浏览器、等待页面、图像点击等细节。
+- `app/services/business_common_service.py`：新增公共业务编排层，提供后续业务接口可复用的方法：
+  - `build_page_flow_context`：统一生成业务上下文，并解析点击偏移参数；
+  - `open_config_pages_by_mode`：按 `playwright_once` 或 `selenium_once` 打开配置页面；
+  - `wait_page_stable`：页面打开后按配置等待稳定；
+  - `find_and_click_images_for_flow`：统一调用图像点击公共服务并输出业务日志；
+  - `build_page_flow_result`：统一组装 page-flow 返回体。
+- `app/services/business_image_click_service.py`：专项公共能力，负责“循环查找图像 -> 命中后点击 -> 失败降级为返回结果”。
+
+新增业务接口时，优先复用 `business_common_service`，不要在新 service 中复制 page-flow 的打开页面、sleep、识图点击、结果拼装逻辑。

@@ -10,7 +10,13 @@ settings = get_settings()
 
 
 def split_image_paths(value: str | None) -> list[str]:
-    """将 .env 中以英文分号分隔的图像路径解析为去重后的路径数组。"""
+    """将 .env 中以英文分号分隔的图像路径解析为去重后的路径数组。
+
+    示例：
+        C:/a.png;C:/b.png -> ['C:/a.png', 'C:/b.png']
+
+    空字符串、空白项会被过滤；重复路径会在 normalize_image_paths 中去重。
+    """
     if not value:
         return []
     return normalize_image_paths([item.strip() for item in value.split(';') if item and item.strip()])
@@ -62,7 +68,11 @@ class BusinessImageClickService:
         click_offset_x: int | None = None,
         click_offset_y: int | None = None,
     ) -> BusinessImageClickOptions:
-        """基于当前 .env 配置构造业务图像点击参数。"""
+        """基于当前 .env 配置构造业务图像点击参数。
+
+        这是业务层最常用的入口：接口层只需要传 clickOffsetX/clickOffsetY，
+        是否启用、图片路径、匹配模式、相似度、超时、重试间隔都从 .env 读取。
+        """
         resolved_click_offset_x, resolved_click_offset_y = self.resolve_click_offset(
             click_offset_x=click_offset_x,
             click_offset_y=click_offset_y,
@@ -204,7 +214,11 @@ class BusinessImageClickService:
         options: BusinessImageClickOptions,
         image_path: str,
     ) -> ClickImageRequest:
-        """构造用于下层循环查找/点击的请求模板。"""
+        """构造用于下层循环查找/点击的请求模板。
+
+        click_images_until_found 会基于该模板替换 imagePath 并保留点击参数，
+        因此这里传入第一张图即可，后续多图轮询时会自动替换为当前图。
+        """
         return ClickImageRequest(
             imagePath=image_path,
             confidence=options.confidence,
