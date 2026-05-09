@@ -31,11 +31,10 @@ class RpaDataService:
     """
 
     def clean_rows(self, request: RpaDataCleanRequest) -> RpaDataTableResponse:
-        """清洗表格行：字段改名、选择字段、去空行、字符串 trim、空值填充。"""
         rows = [dict(row) for row in request.rows]
         cleaned: list[dict[str, Any]] = []
-        rename_map = request.renameMap or {}
-        select_fields = request.selectFields or []
+        rename_map = getattr(request, 'renameMap', None) or {}
+        select_fields = getattr(request, 'selectFields', None) or []
 
         for row in rows:
             new_row: dict[str, Any] = {}
@@ -44,13 +43,13 @@ class RpaDataService:
                 if select_fields and target_key not in select_fields and key not in select_fields:
                     continue
                 new_value = value
-                if request.trimStrings and isinstance(new_value, str):
+                if request.stripWhitespace and isinstance(new_value, str):
                     new_value = new_value.strip()
-                if new_value is None and request.fillNone is not None:
-                    new_value = request.fillNone
+                if new_value is None and request.fillNa is not None:
+                    new_value = request.fillNa
                 new_row[target_key] = new_value
 
-            if request.removeEmptyRows and self._is_empty_row(new_row):
+            if request.dropEmptyRows and self._is_empty_row(new_row):
                 continue
             cleaned.append(new_row)
 
@@ -71,22 +70,19 @@ class RpaDataService:
         return self._table_response(result)
 
     def sort_rows(self, request: RpaDataSortRequest) -> RpaDataTableResponse:
-        """按一个或多个字段排序。"""
         rows = [dict(row) for row in request.rows]
-        sort_fields = request.sortFields or []
+        sort_fields = request.sortBy or []
         if not sort_fields:
             return self._table_response(rows)
 
-        # Python 的排序是稳定排序，因此从最后一个字段开始排序可以支持多字段升降序混合。
         for item in reversed(sort_fields):
-            field = item.field
+            field = item.column
             reverse = not item.ascending
-            rows.sort(key=lambda row: self._sort_key(row.get(field)), reverse=reverse)
+            rows.sort(key=lambda row, f=field: self._sort_key(row.get(f)), reverse=reverse)
         return self._table_response(rows)
 
     def unique_rows(self, request: RpaDataUniqueRequest) -> RpaDataTableResponse:
-        """按指定字段去重；不传 fields 时按整行去重。"""
-        fields = request.fields or []
+        fields = request.subset or []
         result: list[dict[str, Any]] = []
         seen: set[str] = set()
         for row in request.rows:
@@ -102,10 +98,10 @@ class RpaDataService:
         return self._table_response(result)
 
     def group_count(self, request: RpaDataGroupCountRequest) -> RpaDataTableResponse:
-        """按字段分组计数，适合做状态统计、分类统计。"""
-        fields = request.fields or []
+        fields = request.groupBy or []
         if not fields:
-            raise ValueError('group_count 需要至少一个 fields')
+            raise ValueError('group_count 需要至少一个 groupBy')
+        count_field = getattr(request, 'countField', None) or 'count'
         counter: Counter[tuple[Any, ...]] = Counter()
         for row in request.rows:
             counter[tuple(row.get(field) for field in fields)] += 1
@@ -113,36 +109,35 @@ class RpaDataService:
         result: list[dict[str, Any]] = []
         for values, count in counter.items():
             item = {field: value for field, value in zip(fields, values, strict=False)}
-            item[request.countField] = count
+            item[count_field] = count
             result.append(item)
         return self._table_response(result)
 
     def extract_regex(self, request: RpaDataExtractRegexRequest) -> RpaDataValueResponse:
-        """从文本中按正则提取数据，支持命名分组。"""
         flags = 0
-        if request.ignoreCase:
+        if not request.caseSensitive:
             flags |= re.IGNORECASE
-        if request.multiline:
+        if getattr(request, 'multiline', False):
             flags |= re.MULTILINE
         pattern = re.compile(request.pattern, flags)
+        text = getattr(request, 'text', None) or ''
         matches = []
-        for match in pattern.finditer(request.text or ''):
+        for match in pattern.finditer(text):
             if match.groupdict():
                 matches.append(match.groupdict())
             elif match.groups():
                 matches.append(list(match.groups()))
             else:
                 matches.append(match.group(0))
-            if request.firstOnly:
+            if getattr(request, 'firstOnly', False):
                 break
         return RpaDataValueResponse(success=True, value=matches, message=f'提取到 {len(matches)} 条')
 
     def read_file(self, request: RpaDataFileReadRequest) -> RpaDataTableResponse:
-        """读取 CSV/JSON/XLSX 文件为 list[dict]。"""
         path = Path(request.path)
         if not path.exists():
             raise FileNotFoundError(f'文件不存在: {path}')
-        suffix = (request.format or path.suffix.lstrip('.')).lower()
+        suffix = (getattr(request, 'format', None) or path.suffix.lstrip('.')).lower()
         if suffix in {'xlsx', 'xls'}:
             rows = self._read_excel_with_pandas(path, request.sheetName)
         elif suffix == 'csv':
@@ -154,10 +149,9 @@ class RpaDataService:
         return self._table_response(rows)
 
     def write_file(self, request: RpaDataFileWriteRequest) -> RpaDataValueResponse:
-        """把 list[dict] 写出为 CSV/JSON/XLSX 文件。"""
         path = Path(request.path)
         path.parent.mkdir(parents=True, exist_ok=True)
-        suffix = (request.format or path.suffix.lstrip('.')).lower()
+        suffix = (getattr(request, 'format', None) or path.suffix.lstrip('.')).lower()
         rows = [dict(row) for row in request.rows]
         if suffix in {'xlsx', 'xls'}:
             self._write_excel_with_pandas(path, rows, request.sheetName)
@@ -236,10 +230,10 @@ class RpaDataService:
         return (0, value)
 
     def _match_condition(self, row: dict[str, Any], condition: RpaDataCondition) -> bool:
-        actual = row.get(condition.field)
+        actual = row.get(condition.column)
         expected = condition.value
-        op = condition.op.lower()
-        if op in {'eq', 'equals', '='}:
+        op = condition.operator.lower()
+        if op in {'eq', 'equals', '=', '=='}:
             return actual == expected
         if op in {'ne', 'not_equals', '!='}:
             return actual != expected
@@ -257,17 +251,17 @@ class RpaDataService:
             return actual in (expected or []) if isinstance(expected, list) else actual == expected
         if op == 'not_in':
             return actual not in (expected or []) if isinstance(expected, list) else actual != expected
-        if op in {'gt', 'gte', 'lt', 'lte'}:
+        if op in {'gt', '>', 'gte', '>=', 'lt', '<', 'lte', '<='}:
             left = self._to_number(actual)
             right = self._to_number(expected)
-            if op == 'gt':
+            if op in {'gt', '>'}:
                 return left > right
-            if op == 'gte':
+            if op in {'gte', '>='}:
                 return left >= right
-            if op == 'lt':
+            if op in {'lt', '<'}:
                 return left < right
             return left <= right
-        raise ValueError(f'不支持的数据过滤操作符: {condition.op}')
+        raise ValueError(f'不支持的数据过滤操作符: {condition.operator}')
 
     @staticmethod
     def _to_number(value: Any) -> float:
@@ -283,7 +277,7 @@ class RpaDataService:
             for key in row.keys():
                 if key not in columns:
                     columns.append(key)
-        return RpaDataTableResponse(success=True, total=len(rows), columns=columns, rows=rows)
+        return RpaDataTableResponse(success=True, rowCount=len(rows), columns=columns, rows=rows)
 
 
 rpa_data_service = RpaDataService()

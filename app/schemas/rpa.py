@@ -334,10 +334,13 @@ class RpaDataGroupCountRequest(RpaDataRowsRequest):
 class RpaDataExtractRegexRequest(RpaDataRowsRequest):
     """正则提取请求。"""
 
+    text: str = Field(default='', description='待提取的文本内容')
     column: str
     pattern: str
     outputColumn: str = Field(default='extracted')
     caseSensitive: bool = Field(default=True)
+    multiline: bool = Field(default=False)
+    firstOnly: bool = Field(default=False)
 
 
 class RpaDataFileReadRequest(BaseModel):
