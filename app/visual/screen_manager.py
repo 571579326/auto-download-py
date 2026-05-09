@@ -13,6 +13,7 @@ from app.schemas.desktop import (
     OcrClickTextRequest,
     OcrClickTextResponse,
 )
+from app.schemas.rpa import RpaImageLocateRequest, RpaImageLocateResponse
 
 
 logger = logging.getLogger(__name__)
@@ -105,6 +106,64 @@ class ScreenManager:
         if has_offset_x and has_offset_y:
             return int(box.left + request.clickOffsetX), int(box.top + request.clickOffsetY), center
         return int(center.x), int(center.y), center
+
+
+    @staticmethod
+    def _build_locate_region(request: RpaImageLocateRequest):
+        """构造图像查找区域；四个区域字段必须同时为空或同时有值。"""
+        fields = [request.regionLeft, request.regionTop, request.regionWidth, request.regionHeight]
+        if all(value is None for value in fields):
+            return None
+        if any(value is None for value in fields):
+            raise ValueError('regionLeft/regionTop/regionWidth/regionHeight 需要同时传入，或全部不传')
+        return (request.regionLeft, request.regionTop, request.regionWidth, request.regionHeight)
+
+    def locate_image(self, request: RpaImageLocateRequest) -> RpaImageLocateResponse:
+        """只查找图像，不点击。
+
+        该方法用于等待、断言、调试坐标等 RPA 场景。坐标以屏幕左上角为原点。
+        """
+        if not request.imagePath:
+            raise ValueError('imagePath不能为空')
+        if not os.path.exists(request.imagePath):
+            raise ValueError(f'imagePath不存在: {request.imagePath}')
+
+        pyautogui = self._pyautogui()
+        region = self._build_locate_region(request)
+        deadline = time.time() + request.timeoutMs / 1000
+        last_error: Exception | None = None
+
+        while time.time() < deadline:
+            try:
+                box = pyautogui.locateOnScreen(
+                    request.imagePath,
+                    confidence=request.confidence,
+                    region=region,
+                    grayscale=request.grayscale,
+                )
+                if box is not None:
+                    center = pyautogui.center(box)
+                    return RpaImageLocateResponse(
+                        found=True,
+                        imagePath=request.imagePath,
+                        confidence=request.confidence,
+                        centerX=int(center.x),
+                        centerY=int(center.y),
+                        left=int(box.left),
+                        top=int(box.top),
+                        width=int(box.width),
+                        height=int(box.height),
+                    )
+            except Exception as exc:
+                last_error = exc
+            time.sleep(request.retryIntervalMs / 1000)
+
+        return RpaImageLocateResponse(
+            found=False,
+            imagePath=request.imagePath,
+            confidence=request.confidence,
+            error=str(last_error) if last_error else 'timeout',
+        )
 
     def click_position(self, request: ClickPositionRequest) -> ClickPositionResponse:
         pyautogui = self._pyautogui()

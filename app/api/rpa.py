@@ -3,6 +3,8 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.schemas.common import Result
 from app.schemas.rpa import (
+    RpaClipboardResponse,
+    RpaClipboardSetRequest,
     RpaElementAttributeRequest,
     RpaElementClickRequest,
     RpaElementInputRequest,
@@ -10,11 +12,24 @@ from app.schemas.rpa import (
     RpaElementPressRequest,
     RpaElementSelectRequest,
     RpaElementTextRequest,
+    RpaImageClickManyRequest,
+    RpaImageClickRequest,
+    RpaImageLocateRequest,
+    RpaImageLocateResponse,
+    RpaKeyboardActionResponse,
+    RpaKeyboardHotkeyRequest,
+    RpaKeyboardPressRequest,
+    RpaKeyboardTypeRequest,
     RpaLocatorCountRequest,
     RpaLocatorCountResponse,
     RpaLocatorDescribeRequest,
     RpaLocatorFindRequest,
     RpaLocatorFindResponse,
+    RpaMouseActionResponse,
+    RpaMouseClickRequest,
+    RpaMouseDragRequest,
+    RpaMouseMoveRequest,
+    RpaMouseScrollRequest,
     RpaOpenTabRequest,
     RpaOpenUrlRequest,
     RpaPageReloadRequest,
@@ -24,8 +39,12 @@ from app.schemas.rpa import (
     RpaScreenshotRequest,
     RpaScreenshotResponse,
 )
+from app.services.rpa.rpa_clipboard_service import rpa_clipboard_service
 from app.services.rpa.rpa_element_service import rpa_element_service
+from app.services.rpa.rpa_image_service import rpa_image_service
+from app.services.rpa.rpa_keyboard_service import rpa_keyboard_service
 from app.services.rpa.rpa_locator_service import rpa_locator_service
+from app.services.rpa.rpa_mouse_service import rpa_mouse_service
 from app.services.rpa.rpa_page_service import rpa_page_service
 
 router = APIRouter(prefix='/rpa', tags=['rpa'])
@@ -165,3 +184,95 @@ async def locator_count(request: RpaLocatorCountRequest = Body(...)):
     """统计 selector 命中数量。"""
     data = await run_in_threadpool(rpa_locator_service.count, request)
     return Result(message='rpa locator count 成功', data=data)
+
+
+# ----------------------------- image -----------------------------
+@router.post('/image/locate', response_model=Result[RpaImageLocateResponse])
+async def image_locate(request: RpaImageLocateRequest = Body(...)):
+    """在屏幕上查找图像。"""
+    data = await run_in_threadpool(rpa_image_service.locate, request)
+    return Result(message='rpa image locate 成功', data=data)
+
+
+@router.post('/image/wait', response_model=Result[RpaImageLocateResponse])
+async def image_wait(request: RpaImageLocateRequest = Body(...)):
+    """等待图像出现。"""
+    data = await run_in_threadpool(rpa_image_service.wait, request)
+    return Result(message='rpa image wait 成功', data=data)
+
+
+@router.post('/image/click')
+async def image_click(request: RpaImageClickRequest = Body(...)):
+    """查找并点击图像。"""
+    data = await run_in_threadpool(rpa_image_service.click, request)
+    return Result(message='rpa image click 成功', data=data)
+
+
+@router.post('/image/click-many')
+async def image_click_many(request: RpaImageClickManyRequest = Body(...)):
+    """查找并点击多张图像。"""
+    data = await run_in_threadpool(rpa_image_service.click_many, request)
+    return Result(message='rpa image clickMany 成功', data=data)
+
+
+# ----------------------------- mouse -----------------------------
+@router.post('/mouse/click', response_model=Result[RpaMouseActionResponse])
+async def mouse_click(request: RpaMouseClickRequest = Body(...)):
+    data = await run_in_threadpool(rpa_mouse_service.click, request)
+    return Result(message='rpa mouse click 成功', data=data)
+
+
+@router.post('/mouse/move', response_model=Result[RpaMouseActionResponse])
+async def mouse_move(request: RpaMouseMoveRequest = Body(...)):
+    data = await run_in_threadpool(rpa_mouse_service.move, request)
+    return Result(message='rpa mouse move 成功', data=data)
+
+
+@router.post('/mouse/drag', response_model=Result[RpaMouseActionResponse])
+async def mouse_drag(request: RpaMouseDragRequest = Body(...)):
+    data = await run_in_threadpool(rpa_mouse_service.drag, request)
+    return Result(message='rpa mouse drag 成功', data=data)
+
+
+@router.post('/mouse/scroll', response_model=Result[RpaMouseActionResponse])
+async def mouse_scroll(request: RpaMouseScrollRequest = Body(...)):
+    data = await run_in_threadpool(rpa_mouse_service.scroll, request)
+    return Result(message='rpa mouse scroll 成功', data=data)
+
+
+# ----------------------------- keyboard -----------------------------
+@router.post('/keyboard/type', response_model=Result[RpaKeyboardActionResponse])
+async def keyboard_type(request: RpaKeyboardTypeRequest = Body(...)):
+    data = await run_in_threadpool(rpa_keyboard_service.type_text, request)
+    return Result(message='rpa keyboard type 成功', data=data)
+
+
+@router.post('/keyboard/hotkey', response_model=Result[RpaKeyboardActionResponse])
+async def keyboard_hotkey(request: RpaKeyboardHotkeyRequest = Body(...)):
+    data = await run_in_threadpool(rpa_keyboard_service.hotkey, request)
+    return Result(message='rpa keyboard hotkey 成功', data=data)
+
+
+@router.post('/keyboard/press', response_model=Result[RpaKeyboardActionResponse])
+async def keyboard_press(request: RpaKeyboardPressRequest = Body(...)):
+    data = await run_in_threadpool(rpa_keyboard_service.press, request)
+    return Result(message='rpa keyboard press 成功', data=data)
+
+
+# ----------------------------- clipboard -----------------------------
+@router.post('/clipboard/set')
+async def clipboard_set(request: RpaClipboardSetRequest = Body(...)):
+    data = await run_in_threadpool(rpa_clipboard_service.set_text, request)
+    return Result(message='rpa clipboard set 成功', data=data)
+
+
+@router.post('/clipboard/get', response_model=Result[RpaClipboardResponse])
+async def clipboard_get():
+    data = await run_in_threadpool(rpa_clipboard_service.get_text)
+    return Result(message='rpa clipboard get 成功', data=data)
+
+
+@router.post('/clipboard/paste')
+async def clipboard_paste():
+    data = await run_in_threadpool(rpa_clipboard_service.paste)
+    return Result(message='rpa clipboard paste 成功', data=data)

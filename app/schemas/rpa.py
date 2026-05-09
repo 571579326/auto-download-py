@@ -202,3 +202,145 @@ class RpaLocatorCountResponse(BaseModel):
     error: str | None = None
     windowId: str | None = None
     pageId: str | None = None
+
+
+# ============================ image ============================
+class RpaImageLocateRequest(BaseModel):
+    """RPA 图像定位请求。"""
+
+    imagePath: str = Field(description='目标图片路径')
+    confidence: float = Field(default=0.8, ge=0.1, le=1.0, description='匹配置信度阈值')
+    regionLeft: int | None = Field(default=None, description='区域左边界（像素）')
+    regionTop: int | None = Field(default=None, description='区域上边界（像素）')
+    regionWidth: int | None = Field(default=None, description='区域宽度（像素）')
+    regionHeight: int | None = Field(default=None, description='区域高度（像素）')
+    grayscale: bool = Field(default=False, description='是否按灰度匹配')
+    timeoutMs: int = Field(default=5000, ge=100, description='超时时间，毫秒')
+    retryIntervalMs: int = Field(default=500, ge=50, description='重试间隔，毫秒')
+
+
+class RpaImageLocateResponse(BaseModel):
+    """图像定位结果。"""
+
+    found: bool
+    imagePath: str | None = None
+    confidence: float | None = None
+    centerX: int | None = None
+    centerY: int | None = None
+    left: int | None = None
+    top: int | None = None
+    width: int | None = None
+    height: int | None = None
+    error: str | None = None
+
+
+class RpaImageClickRequest(RpaImageLocateRequest):
+    """RPA 图像点击请求。"""
+
+    clicks: int = Field(default=1, ge=1)
+    intervalSeconds: float = Field(default=0.5, ge=0)
+    button: str = Field(default='left', description='left/right/middle')
+    moveDurationSeconds: float = Field(default=0.5, ge=0)
+    clickOffsetX: int = Field(default=0, description='点击X偏移（相对于图片左上角）')
+    clickOffsetY: int = Field(default=0, description='点击Y偏移（相对于图片左上角）')
+
+
+class RpaImageClickManyRequest(RpaImageLocateRequest):
+    """RPA 多图像点击（OR/AND）请求。"""
+
+    imagePaths: list[str] = Field(default_factory=list, description='备选图片路径列表')
+    matchMode: Literal['OR', 'AND'] = Field(default='OR', description='OR 点击任意一张，AND 逐张点击')
+
+
+# ============================ mouse ============================
+class RpaMouseClickRequest(BaseModel):
+    """鼠标点击请求。"""
+
+    x: int = Field(description='屏幕 X 坐标')
+    y: int = Field(description='屏幕 Y 坐标')
+    clicks: int = Field(default=1, ge=1, description='点击次数')
+    intervalSeconds: float = Field(default=0.2, ge=0, description='点击间隔，秒')
+    button: str = Field(default='left', description='left/right/middle')
+    moveDurationSeconds: float = Field(default=0.3, ge=0, description='移动持续时间，秒')
+
+
+class RpaMouseMoveRequest(BaseModel):
+    """鼠标移动请求。"""
+
+    x: int = Field(description='目标 X 坐标')
+    y: int = Field(description='目标 Y 坐标')
+    durationSeconds: float = Field(default=0.5, ge=0, description='移动持续时间，秒')
+    absolute: bool = Field(default=True, description='是否绝对坐标')
+
+
+class RpaMouseDragRequest(BaseModel):
+    """鼠标拖拽请求。"""
+
+    startX: int = Field(description='起始 X 坐标')
+    startY: int = Field(description='起始 Y 坐标')
+    endX: int = Field(description='结束 X 坐标')
+    endY: int = Field(description='结束 Y 坐标')
+    durationSeconds: float = Field(default=0.5, ge=0, description='拖拽持续时间，秒')
+    button: str = Field(default='left', description='按住键，left/right/middle')
+
+
+class RpaMouseScrollRequest(BaseModel):
+    """鼠标滚动请求。"""
+
+    clicks: int = Field(default=3, description='滚动格数/次数，正数向下，负数向上')
+    x: int | None = Field(default=None, description='滚动位置 X（可选）')
+    y: int | None = Field(default=None, description='滚动位置 Y（可选）')
+
+
+class RpaMouseActionResponse(BaseModel):
+    """鼠标动作响应。"""
+
+    success: bool = True
+    x: int | None = None
+    y: int | None = None
+    error: str | None = None
+
+
+# ============================ keyboard ============================
+class RpaKeyboardTypeRequest(BaseModel):
+    """键盘输入文本请求。"""
+
+    text: str = Field(description='要输入的文本内容')
+    intervalSeconds: float = Field(default=0.05, ge=0, description='按键间隔，秒')
+
+
+class RpaKeyboardHotkeyRequest(BaseModel):
+    """键盘快捷键请求。"""
+
+    keys: list[str] = Field(description='组合键列表，如 ["ctrl", "c"]')
+    intervalSeconds: float = Field(default=0.1, ge=0, description='按键间隔，秒')
+
+
+class RpaKeyboardPressRequest(BaseModel):
+    """键盘单按键请求。"""
+
+    key: str = Field(description='按键名，如 enter、tab、escape')
+    presses: int = Field(default=1, ge=1, description='按下次数')
+    intervalSeconds: float = Field(default=0.1, ge=0, description='按键间隔，秒')
+
+
+class RpaKeyboardActionResponse(BaseModel):
+    """键盘动作响应。"""
+
+    success: bool = True
+    error: str | None = None
+
+
+# ============================ clipboard ============================
+class RpaClipboardSetRequest(BaseModel):
+    """剪贴板写入请求。"""
+
+    text: str = Field(description='要写入的文本内容')
+
+
+class RpaClipboardResponse(BaseModel):
+    """剪贴板操作响应。"""
+
+    success: bool = True
+    text: str | None = None
+    error: str | None = None

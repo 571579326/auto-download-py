@@ -8,6 +8,7 @@ from app.schemas.desktop import (
     OcrClickTextRequest,
     OcrClickTextResponse,
 )
+from app.schemas.rpa import RpaImageLocateRequest, RpaImageLocateResponse
 from app.visual.screen_manager import screen_manager
 
 
@@ -34,6 +35,10 @@ def _normalize_image_paths(request: ClickImagesRequest) -> list[str]:
 
 class VisualService:
     """给本地业务代码直接调用的图像/屏幕服务层。"""
+
+    def locate_image(self, request: RpaImageLocateRequest) -> RpaImageLocateResponse:
+        """RPA公共能力：只查找图像，不执行点击。"""
+        return screen_manager.locate_image(request)
 
     def click_position(self, request: ClickPositionRequest) -> ClickPositionResponse:
         return screen_manager.click_position(request)
