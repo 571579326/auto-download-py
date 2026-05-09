@@ -15,3 +15,4 @@
 - `desktop-service.md`：桌面窗口、键盘、窗口激活扩展说明。
 - `visual-service.md`：坐标点击、模板图点击与 OCR 预留说明。
 - `business-image-click.md`：业务公共图像点击服务，封装循环查找/按规则点击/结果返回的公共逻辑。
+- `commit-rules.md`：PR提交规范，包含分功能分批提交原则、标题格式、信息规范。
