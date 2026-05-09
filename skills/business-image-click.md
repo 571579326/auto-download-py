@@ -81,3 +81,15 @@
 - 偏移值 `click_offset_x/click_offset_y` 是相对"匹配到的图片区域左上角"的偏移，不是相对屏幕左上角
 - 本服务返回的业务结果不会导致 HTTP 500，图像点击失败通过 `clicked: false` + `error` 返回
 - 本服务实例为模块级单例：`business_image_click_service`
+
+## 业务公共层复用建议
+
+如果新增类似 `/biz/page-flow` 的业务流程，推荐按以下顺序复用公共方法：
+
+1. 调用 `business_common_service.build_page_flow_context(...)` 生成上下文。
+2. 调用 `business_common_service.open_config_pages_by_mode(context)` 打开数据库配置页面。
+3. 调用 `business_common_service.wait_page_stable(page_count=response.total)` 等页面稳定。
+4. 调用 `business_common_service.find_and_click_images_for_flow(context)` 执行公共识图点击。
+5. 调用 `business_common_service.build_page_flow_result(...)` 组装统一返回结构。
+
+`clickOffsetX/clickOffsetY` 始终表示“相对匹配图片区域左上角”的偏移；两者都不传时点击匹配框中心点。

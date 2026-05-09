@@ -13,6 +13,7 @@
 | [依赖关系](docs/dependency-graph.md) | 外部/内部依赖、数据流、线程模型 |
 | [API 调用链](docs/api-call-chain.md) | 接口到 schema、service、manager、数据库/外部依赖的映射 |
 | [开发指南](docs/development-guide.md) | 新增能力时的固定改动顺序和约束 |
+| [RPA公共方法层](docs/rpa-common-methods.md) | 页面/DOM/图像/鼠标/键盘/数据处理等 RPA 公共动作说明 |
 | [AGENT.md](AGENT.md) | 给维护者或自动化代理使用的项目规则 |
 | [skills/README.md](skills/README.md) | 按能力拆分的维护说明 |
 
@@ -25,8 +26,10 @@ app/
     business.py         # 业务流程 HTTP API（page-flow），FastAPI router
     desktop.py          # 桌面/屏幕 HTTP API，FastAPI router
     health.py           # 健康检查
+    rpa.py              # RPA 公共方法 HTTP API，FastAPI router
   browser/
     manager.py          # Playwright + CDP 浏览器运行时与会话管理
+    rpa_locator_backend.py  # RPA 网页 UI 定位器后端
   desktop/
     windows_manager.py  # pywinauto 窗口枚举与激活
   visual/
@@ -45,12 +48,26 @@ app/
     browser.py
     desktop.py
     common.py
+    rpa.py              # RPA 公共方法请求/响应模型
   services/
     browser_service.py              # 本地浏览器 service
-    business_service.py             # 本地业务流程 service
+    business_service.py             # 本地业务流程 service（入口）
+    business_common_service.py      # 业务公共编排方法层
     business_image_click_service.py # 业务公共图像点击服务
     desktop_service.py              # 本地桌面 service
     visual_service.py               # 本地图像/屏幕 service
+    rpa/                            # RPA 公共方法层（按功能分类）
+      rpa_page_service.py           # 页面：重连、打开、刷新、截图等
+      rpa_element_service.py        # DOM 元素：点击、输入、读文本等
+      rpa_locator_service.py        # 网页 UI 定位：查找、描述、计数
+      rpa_image_service.py          # 图像：查找、等待、点击
+      rpa_mouse_service.py          # 鼠标：坐标点击、移动、拖拽、滚轮
+      rpa_keyboard_service.py       # 键盘：输入、快捷键、组合键
+      rpa_clipboard_service.py      # 剪贴板：设置、读取、粘贴
+      rpa_data_service.py           # 数据处理：清洗、过滤、排序、去重等
+      rpa_wait_service.py           # 等待：sleep、等元素、等图像、等URL
+      rpa_assert_service.py         # 断言：URL、元素、文本、图像
+      rpa_flow_service.py           # JSON 流程编排：顺序执行、重试、失败策略
   utils/
     http_utils.py       # HTTP 请求工具（get/put JSON）
     image_utils.py      # 图像点击工具函数（单图/多图/轮询）
@@ -76,6 +93,7 @@ docs/
   development-guide.md
   dependency-graph.md
   key-classes-functions.md
+  rpa-common-methods.md
 ```
 
 ## 当前调用链
@@ -282,6 +300,85 @@ POST /auto-download/biz/page-flow-selenium?configCode=acg18&clickOffsetX=14&clic
 
 `clickOffsetX` / `clickOffsetY` 为可选参数，相对匹配到的图片区域左上角计算的点击偏移。
 
+### RPA 公共方法 API
+
+```http
+# 页面
+POST /auto-download/rpa/page/reconnect
+POST /auto-download/rpa/page/info
+POST /auto-download/rpa/page/list
+POST /auto-download/rpa/page/activate
+POST /auto-download/rpa/page/open-tab
+POST /auto-download/rpa/page/open-url
+POST /auto-download/rpa/page/reload
+POST /auto-download/rpa/page/wait-load-state
+POST /auto-download/rpa/page/wait-url
+POST /auto-download/rpa/page/screenshot
+
+# DOM 元素
+POST /auto-download/rpa/element/exists
+POST /auto-download/rpa/element/click
+POST /auto-download/rpa/element/input
+POST /auto-download/rpa/element/text
+POST /auto-download/rpa/element/attribute
+POST /auto-download/rpa/element/press
+POST /auto-download/rpa/element/select
+
+# 网页 UI 定位
+POST /auto-download/rpa/locator/find
+POST /auto-download/rpa/locator/describe
+POST /auto-download/rpa/locator/count
+
+# 图像
+POST /auto-download/rpa/image/locate
+POST /auto-download/rpa/image/wait
+POST /auto-download/rpa/image/click
+POST /auto-download/rpa/image/click-many
+
+# 鼠标
+POST /auto-download/rpa/mouse/click
+POST /auto-download/rpa/mouse/move
+POST /auto-download/rpa/mouse/drag
+POST /auto-download/rpa/mouse/scroll
+
+# 键盘
+POST /auto-download/rpa/keyboard/type
+POST /auto-download/rpa/keyboard/hotkey
+POST /auto-download/rpa/keyboard/press
+
+# 剪贴板
+POST /auto-download/rpa/clipboard/set
+POST /auto-download/rpa/clipboard/get
+POST /auto-download/rpa/clipboard/paste
+
+# 数据处理
+POST /auto-download/rpa/data/clean
+POST /auto-download/rpa/data/filter
+POST /auto-download/rpa/data/sort
+POST /auto-download/rpa/data/unique
+POST /auto-download/rpa/data/group-count
+POST /auto-download/rpa/data/extract-regex
+POST /auto-download/rpa/data/read-file
+POST /auto-download/rpa/data/write-file
+
+# 等待
+POST /auto-download/rpa/wait/sleep
+POST /auto-download/rpa/wait/element
+POST /auto-download/rpa/wait/image
+POST /auto-download/rpa/wait/url
+
+# 断言
+POST /auto-download/rpa/assert/url-contains
+POST /auto-download/rpa/assert/element-exists
+POST /auto-download/rpa/assert/image-exists
+POST /auto-download/rpa/assert/text-contains
+
+# 流程编排
+POST /auto-download/rpa/flow/run
+```
+
+请求体和详细说明见 [docs/rpa-common-methods.md](docs/rpa-common-methods.md)。
+
 ### 图像/屏幕工具函数
 
 除了 HTTP API 外，`app/utils/image_utils.py` 提供以下可直接 import 使用的工具函数：
@@ -441,6 +538,8 @@ uv run python scripts/e2e_test.py
 
 - API 层只做参数接收、schema 绑定、线程池转调和统一响应封装。
 - 业务代码优先调用 `app/services/*.py`，不要直接调用 `app/api/*.py`。
+- 业务编排层（`app/services/business_common_service.py`）封装可复用的多步骤业务逻辑，供 `BusinessService` 等入口 service 调用。
+- RPA 公共方法层（`app/services/rpa/*.py`）按功能分类封装通用自动化动作，供业务 service 和 JSON 流程编排使用。
 - 工具函数层（`app/utils/image_utils.py`）封装常用的图像点击逻辑，供业务代码直接 import。
 - 浏览器核心逻辑放在 `app/browser/manager.py`。
 - 桌面窗口逻辑放在 `app/desktop/windows_manager.py`。
@@ -633,3 +732,71 @@ PLAYWRIGHT_ONCE_READ_PAGE_INFO=false
 ```
 
 `false` 表示打开 URL 后不额外读取页面标题、当前 URL，也不等待页面加载完成，用来降低自动化接管强度。
+
+
+## 业务公共编排层
+
+新增 `app/services/business_common_service.py`，用于封装跨步骤的公共业务逻辑。通过将多步操作（如：打开页面 → 等待加载 → 点击图像 → 获取结果）组合为可复用的编排方法，简化 `BusinessService` 的调用链路。
+
+典型场景示例：
+
+```python
+# 重构前：BusinessService 内直接处理所有步骤
+steps = [step1, step2, step3]
+for step in steps:
+    ...
+
+# 重构后：通过 BusinessCommonService 一键编排
+from app.services.business_common_service import business_common_service
+result = business_common_service.open_page_and_auto_click(
+    window_id=window_id,
+    config_code="acg18",
+    wait_before_click=3.0,
+)
+```
+
+
+## RPA 公共方法层
+
+本项目已新增 `app/services/rpa/` 模块和 `/rpa/**` HTTP API，提供按功能分类的通用自动化动作。所有 RPA 动作均支持 **HTTP 调用** 和 **本地 Python import** 两种使用方式。
+
+### 分层架构
+
+```
+HTTP API 层（app/api/rpa.py）
+    ↓
+Service 层（app/services/rpa/*.py）
+    ├── rpa_page_service.py      # 页面管理（重连、打开、刷新、截图等）
+    ├── rpa_element_service.py    # DOM 元素操作（点击、输入、读文本等）
+    ├── rpa_locator_service.py    # 网页 UI 定位（查找、描述、计数）
+    ├── rpa_image_service.py      # 图像查找/等待/点击
+    ├── rpa_mouse_service.py      # 鼠标动作（坐标点击、移动、拖拽、滚轮）
+    ├── rpa_keyboard_service.py   # 键盘输入（文本、快捷键、组合键）
+    ├── rpa_clipboard_service.py  # 剪贴板操作（设置、读取、粘贴）
+    ├── rpa_data_service.py       # 数据处理（清洗、过滤、排序、去重等）
+    ├── rpa_wait_service.py       # 等待（sleep、等元素、等图像、等URL）
+    ├── rpa_assert_service.py     # 断言（URL、元素、文本、图像）
+    └── rpa_flow_service.py       # JSON 流程编排（顺序执行、重试、失败策略）
+    ↓
+Browser Manager（app/browser/manager.py） / Screen Manager（app/visual/screen_manager.py）
+```
+
+### RPA 调用示例
+
+```python
+from app.services.rpa.rpa_page_service import rpa_page_service
+from app.services.rpa.rpa_element_service import rpa_element_service
+
+# 重连已有页面
+page = await rpa_page_service.rpa_reconnect_page(window_id="window-1")
+
+# 打开新页面
+page = await rpa_page_service.rpa_open_url(window_id="window-1", url="https://example.com")
+
+# 查找并点击元素
+from app.schemas.rpa import RPALocator
+locator = RPALocator(by="css", value="#login-btn")
+await rpa_element_service.rpa_element_click(window_id="window-1", locator=locator)
+```
+
+完整功能说明和请求体格式见 [docs/rpa-common-methods.md](docs/rpa-common-methods.md)。
