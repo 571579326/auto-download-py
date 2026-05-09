@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -13,52 +13,38 @@ class RpaPageTarget(BaseModel):
 
 
 class RpaOpenUrlRequest(RpaPageTarget):
-    """打开 URL 的 RPA 请求。"""
-
     url: str = Field(description='要打开的 URL')
     newTab: bool = Field(default=False, description='是否新开标签页')
     bringToFront: bool = Field(default=True, description='打开后是否切到前台')
 
 
 class RpaOpenTabRequest(RpaPageTarget):
-    """打开新标签页请求。"""
-
     url: str = Field(default='about:blank', description='新标签页 URL')
     bringToFront: bool = Field(default=True, description='是否切到前台')
 
 
 class RpaPageWaitLoadStateRequest(RpaPageTarget):
-    """等待页面加载状态请求。"""
-
     state: Literal['load', 'domcontentloaded', 'networkidle'] = Field(default='domcontentloaded')
-    timeoutMs: int = Field(default=10000, ge=100, description='超时时间，毫秒')
+    timeoutMs: int = Field(default=10000, ge=100)
 
 
 class RpaPageReloadRequest(RpaPageTarget):
-    """刷新页面请求。"""
-
     waitUntil: Literal['load', 'domcontentloaded', 'networkidle'] = Field(default='domcontentloaded')
-    timeoutMs: int = Field(default=10000, ge=100, description='超时时间，毫秒')
+    timeoutMs: int = Field(default=10000, ge=100)
 
 
 class RpaPageWaitUrlRequest(RpaPageTarget):
-    """等待 URL 包含指定关键字请求。"""
-
     urlContainsTarget: str = Field(description='等待 URL 中出现的关键字')
     timeoutMs: int = Field(default=10000, ge=100)
     retryIntervalMs: int = Field(default=300, ge=50)
 
 
 class RpaScreenshotRequest(RpaPageTarget):
-    """页面截图请求。"""
-
-    path: str | None = Field(default=None, description='可选。截图保存路径')
-    fullPage: bool = Field(default=True, description='是否截取完整页面')
+    path: str | None = Field(default=None)
+    fullPage: bool = Field(default=True)
 
 
 class RpaScreenshotResponse(BaseModel):
-    """页面截图响应。"""
-
     success: bool
     path: str
     windowId: str
@@ -69,58 +55,42 @@ class RpaScreenshotResponse(BaseModel):
 
 # ============================ element ============================
 class RpaElementBaseRequest(RpaPageTarget):
-    """元素操作基础请求。"""
-
-    selector: str | None = Field(default=None, description='CSS/XPath 选择器')
-    text: str | None = Field(default=None, description='元素可见文本')
-    attr: str | None = Field(default=None, description='元素属性值')
-    role: str | None = Field(default=None, description='ARIA role')
-    exact: bool = Field(default=False, description='是否精确匹配')
-    timeoutMs: int = Field(default=5000, ge=100, description='超时时间，毫秒')
+    selector: str | None = Field(default=None)
+    text: str | None = Field(default=None)
+    attr: str | None = Field(default=None)
+    role: str | None = Field(default=None)
+    exact: bool = Field(default=False)
+    timeoutMs: int = Field(default=5000, ge=100)
 
 
 class RpaElementClickRequest(RpaElementBaseRequest):
-    """元素点击请求。"""
-
-    clickCount: int = Field(default=1, ge=1, description='点击次数')
+    clickCount: int = Field(default=1, ge=1)
 
 
 class RpaElementInputRequest(RpaElementBaseRequest):
-    """输入内容请求。"""
-
-    value: str = Field(default='', description='要输入的文本')
-    clear: bool = Field(default=True, description='输入前是否先清空')
+    value: str = Field(default='')
+    clear: bool = Field(default=True)
 
 
 class RpaElementTextRequest(RpaElementBaseRequest):
-    """获取元素文本请求。"""
-
     pass
 
 
 class RpaElementAttributeRequest(RpaElementBaseRequest):
-    """获取元素属性请求。"""
-
-    attributeName: str = Field(default='', description='属性名，如 href、src')
+    attributeName: str = Field(default='')
 
 
 class RpaElementPressRequest(RpaElementBaseRequest):
-    """键盘按键请求。"""
-
-    key: str = Field(default='', description='按键名，如 Enter、Tab')
+    key: str = Field(default='')
 
 
 class RpaElementSelectRequest(RpaElementBaseRequest):
-    """选择 <select> 选项请求。"""
-
-    value: list[str] = Field(default_factory=list, description='待选 option value 列表')
-    label: list[str] = Field(default_factory=list, description='待选 option 文本列表')
-    index: list[int] = Field(default_factory=list, description='待选 option 索引列表')
+    value: list[str] = Field(default_factory=list)
+    label: list[str] = Field(default_factory=list)
+    index: list[int] = Field(default_factory=list)
 
 
 class RpaElementOperationResponse(BaseModel):
-    """元素操作响应。"""
-
     success: bool = True
     windowId: str | None = None
     pageId: str | None = None
@@ -132,46 +102,36 @@ class RpaElementOperationResponse(BaseModel):
 
 # ============================ locator ============================
 class RpaLocatorItem(BaseModel):
-    """定位器条件项——一个独立的定位维度。"""
-
-    selector: str | None = Field(default=None, description='CSS/XPath 选择器')
-    text: str | None = Field(default=None, description='元素可见文本，支持 get_by_text')
-    attr: str | None = Field(default=None, description='属性名')
-    attrValue: str | None = Field(default=None, description='属性值')
-    role: str | None = Field(default=None, description='ARIA role，如 button、link')
-    exact: bool = Field(default=False, description='是否精确匹配文本')
-    nth: int | None = Field(default=None, description='第 N 个匹配元素，从 0 开始')
-    has: list['RpaLocatorItem'] | None = Field(default=None, description='子元素条件')
-    hasText: str | None = Field(default=None, description='子元素包含文本')
-    operator: Literal['and', 'or', 'chain'] = Field(default='and', description='多条件组合方式')
+    selector: str | None = Field(default=None)
+    text: str | None = Field(default=None)
+    attr: str | None = Field(default=None)
+    attrValue: str | None = Field(default=None)
+    role: str | None = Field(default=None)
+    exact: bool = Field(default=False)
+    nth: int | None = Field(default=None)
+    has: list['RpaLocatorItem'] | None = Field(default=None)
+    hasText: str | None = Field(default=None)
+    operator: Literal['and', 'or', 'chain'] = Field(default='and')
 
 
 class RpaLocatorFindRequest(RpaPageTarget):
-    """批量查找元素请求。"""
-
-    selectors: list[RpaLocatorItem] = Field(description='定位条件列表')
-    minCount: int | None = Field(default=None, description='要求最少命中数量')
-    maxCount: int | None = Field(default=None, description='要求最多命中数量')
-    timeoutMs: int = Field(default=5000, ge=100, description='超时时间，毫秒')
+    selectors: list[RpaLocatorItem]
+    minCount: int | None = Field(default=None)
+    maxCount: int | None = Field(default=None)
+    timeoutMs: int = Field(default=5000, ge=100)
 
 
 class RpaLocatorDescribeRequest(RpaPageTarget):
-    """描述单个元素请求。"""
-
-    selectors: list[RpaLocatorItem] = Field(description='定位条件列表')
-    timeoutMs: int = Field(default=5000, ge=100, description='超时时间，毫秒')
+    selectors: list[RpaLocatorItem]
+    timeoutMs: int = Field(default=5000, ge=100)
 
 
 class RpaLocatorCountRequest(RpaPageTarget):
-    """统计元素数量请求。"""
-
-    selectors: list[RpaLocatorItem] = Field(description='定位条件列表')
-    timeoutMs: int = Field(default=5000, ge=100, description='超时时间，毫秒')
+    selectors: list[RpaLocatorItem]
+    timeoutMs: int = Field(default=5000, ge=100)
 
 
 class RpaLocatorLocatorResult(BaseModel):
-    """单个定位元素描述。"""
-
     tagName: str | None = None
     attributes: dict[str, str] = Field(default_factory=dict)
     text: str | None = None
@@ -184,8 +144,6 @@ class RpaLocatorLocatorResult(BaseModel):
 
 
 class RpaLocatorFindResponse(BaseModel):
-    """查找/描述/统计元素响应。"""
-
     success: bool = True
     count: int = 0
     elements: list[RpaLocatorLocatorResult] = Field(default_factory=list)
@@ -195,8 +153,6 @@ class RpaLocatorFindResponse(BaseModel):
 
 
 class RpaLocatorCountResponse(BaseModel):
-    """统计元素数量响应。"""
-
     success: bool = True
     count: int = 0
     error: str | None = None
@@ -206,22 +162,18 @@ class RpaLocatorCountResponse(BaseModel):
 
 # ============================ image ============================
 class RpaImageLocateRequest(BaseModel):
-    """RPA 图像定位请求。"""
-
-    imagePath: str = Field(description='目标图片路径')
-    confidence: float = Field(default=0.8, ge=0.1, le=1.0, description='匹配置信度阈值')
-    regionLeft: int | None = Field(default=None, description='区域左边界（像素）')
-    regionTop: int | None = Field(default=None, description='区域上边界（像素）')
-    regionWidth: int | None = Field(default=None, description='区域宽度（像素）')
-    regionHeight: int | None = Field(default=None, description='区域高度（像素）')
-    grayscale: bool = Field(default=False, description='是否按灰度匹配')
-    timeoutMs: int = Field(default=5000, ge=100, description='超时时间，毫秒')
-    retryIntervalMs: int = Field(default=500, ge=50, description='重试间隔，毫秒')
+    imagePath: str
+    confidence: float = Field(default=0.8, ge=0.1, le=1.0)
+    regionLeft: int | None = Field(default=None)
+    regionTop: int | None = Field(default=None)
+    regionWidth: int | None = Field(default=None)
+    regionHeight: int | None = Field(default=None)
+    grayscale: bool = Field(default=False)
+    timeoutMs: int = Field(default=5000, ge=100)
+    retryIntervalMs: int = Field(default=500, ge=50)
 
 
 class RpaImageLocateResponse(BaseModel):
-    """图像定位结果。"""
-
     found: bool
     imagePath: str | None = None
     confidence: float | None = None
@@ -235,66 +187,52 @@ class RpaImageLocateResponse(BaseModel):
 
 
 class RpaImageClickRequest(RpaImageLocateRequest):
-    """RPA 图像点击请求。"""
-
     clicks: int = Field(default=1, ge=1)
     intervalSeconds: float = Field(default=0.5, ge=0)
-    button: str = Field(default='left', description='left/right/middle')
+    button: str = Field(default='left')
     moveDurationSeconds: float = Field(default=0.5, ge=0)
-    clickOffsetX: int = Field(default=0, description='点击X偏移（相对于图片左上角）')
-    clickOffsetY: int = Field(default=0, description='点击Y偏移（相对于图片左上角）')
+    clickOffsetX: int = Field(default=0)
+    clickOffsetY: int = Field(default=0)
 
 
 class RpaImageClickManyRequest(RpaImageLocateRequest):
-    """RPA 多图像点击（OR/AND）请求。"""
-
-    imagePaths: list[str] = Field(default_factory=list, description='备选图片路径列表')
-    matchMode: Literal['OR', 'AND'] = Field(default='OR', description='OR 点击任意一张，AND 逐张点击')
+    imagePaths: list[str] = Field(default_factory=list)
+    matchMode: Literal['OR', 'AND'] = Field(default='OR')
 
 
 # ============================ mouse ============================
 class RpaMouseClickRequest(BaseModel):
-    """鼠标点击请求。"""
-
-    x: int = Field(description='屏幕 X 坐标')
-    y: int = Field(description='屏幕 Y 坐标')
-    clicks: int = Field(default=1, ge=1, description='点击次数')
-    intervalSeconds: float = Field(default=0.2, ge=0, description='点击间隔，秒')
-    button: str = Field(default='left', description='left/right/middle')
-    moveDurationSeconds: float = Field(default=0.3, ge=0, description='移动持续时间，秒')
+    x: int
+    y: int
+    clicks: int = Field(default=1, ge=1)
+    intervalSeconds: float = Field(default=0.2, ge=0)
+    button: str = Field(default='left')
+    moveDurationSeconds: float = Field(default=0.3, ge=0)
 
 
 class RpaMouseMoveRequest(BaseModel):
-    """鼠标移动请求。"""
-
-    x: int = Field(description='目标 X 坐标')
-    y: int = Field(description='目标 Y 坐标')
-    durationSeconds: float = Field(default=0.5, ge=0, description='移动持续时间，秒')
-    absolute: bool = Field(default=True, description='是否绝对坐标')
+    x: int
+    y: int
+    durationSeconds: float = Field(default=0.5, ge=0)
+    absolute: bool = Field(default=True)
 
 
 class RpaMouseDragRequest(BaseModel):
-    """鼠标拖拽请求。"""
-
-    startX: int = Field(description='起始 X 坐标')
-    startY: int = Field(description='起始 Y 坐标')
-    endX: int = Field(description='结束 X 坐标')
-    endY: int = Field(description='结束 Y 坐标')
-    durationSeconds: float = Field(default=0.5, ge=0, description='拖拽持续时间，秒')
-    button: str = Field(default='left', description='按住键，left/right/middle')
+    startX: int
+    startY: int
+    endX: int
+    endY: int
+    durationSeconds: float = Field(default=0.5, ge=0)
+    button: str = Field(default='left')
 
 
 class RpaMouseScrollRequest(BaseModel):
-    """鼠标滚动请求。"""
-
-    clicks: int = Field(default=3, description='滚动格数/次数，正数向下，负数向上')
-    x: int | None = Field(default=None, description='滚动位置 X（可选）')
-    y: int | None = Field(default=None, description='滚动位置 Y（可选）')
+    clicks: int = Field(default=3)
+    x: int | None = Field(default=None)
+    y: int | None = Field(default=None)
 
 
 class RpaMouseActionResponse(BaseModel):
-    """鼠标动作响应。"""
-
     success: bool = True
     x: int | None = None
     y: int | None = None
@@ -303,44 +241,212 @@ class RpaMouseActionResponse(BaseModel):
 
 # ============================ keyboard ============================
 class RpaKeyboardTypeRequest(BaseModel):
-    """键盘输入文本请求。"""
-
-    text: str = Field(description='要输入的文本内容')
-    intervalSeconds: float = Field(default=0.05, ge=0, description='按键间隔，秒')
+    text: str
+    intervalSeconds: float = Field(default=0.05, ge=0)
 
 
 class RpaKeyboardHotkeyRequest(BaseModel):
-    """键盘快捷键请求。"""
-
-    keys: list[str] = Field(description='组合键列表，如 ["ctrl", "c"]')
-    intervalSeconds: float = Field(default=0.1, ge=0, description='按键间隔，秒')
+    keys: list[str]
+    intervalSeconds: float = Field(default=0.1, ge=0)
 
 
 class RpaKeyboardPressRequest(BaseModel):
-    """键盘单按键请求。"""
-
-    key: str = Field(description='按键名，如 enter、tab、escape')
-    presses: int = Field(default=1, ge=1, description='按下次数')
-    intervalSeconds: float = Field(default=0.1, ge=0, description='按键间隔，秒')
+    key: str
+    presses: int = Field(default=1, ge=1)
+    intervalSeconds: float = Field(default=0.1, ge=0)
 
 
 class RpaKeyboardActionResponse(BaseModel):
-    """键盘动作响应。"""
-
     success: bool = True
     error: str | None = None
 
 
 # ============================ clipboard ============================
 class RpaClipboardSetRequest(BaseModel):
-    """剪贴板写入请求。"""
-
-    text: str = Field(description='要写入的文本内容')
+    text: str
 
 
 class RpaClipboardResponse(BaseModel):
-    """剪贴板操作响应。"""
-
     success: bool = True
     text: str | None = None
+    error: str | None = None
+
+
+# ============================ data ============================
+class RpaDataCondition(BaseModel):
+    """数据筛选条件。"""
+
+    column: str
+    operator: Literal['==', '!=', '>', '<', '>=', '<=', 'contains', 'not_contains', 'startswith', 'endswith', 'in', 'not_in', 'regex']
+    value: Any = None
+
+
+class RpaDataSortField(BaseModel):
+    """排序字段。"""
+
+    column: str
+    ascending: bool = Field(default=True)
+
+
+class RpaDataRowsRequest(BaseModel):
+    """传入行数据的基础请求。"""
+
+    rows: list[dict] = Field(default_factory=list, description='二维表数据，每行为一条记录')
+    columns: list[str] | None = Field(default=None, description='可选。列名列表，不传则从行数据自动推导')
+
+
+class RpaDataCleanRequest(RpaDataRowsRequest):
+    """数据清洗请求：去除空行/空列/重复行。"""
+
+    dropEmptyRows: bool = Field(default=True)
+    dropEmptyColumns: bool = Field(default=True)
+    dropDuplicates: bool = Field(default=True)
+    stripWhitespace: bool = Field(default=True)
+    fillNa: Any = Field(default='', description='空值填充内容')
+
+
+class RpaDataFilterRequest(RpaDataRowsRequest):
+    """数据筛选请求。"""
+
+    conditions: list[RpaDataCondition] = Field(default_factory=list)
+    logic: Literal['and', 'or'] = Field(default='and')
+
+
+class RpaDataSortRequest(RpaDataRowsRequest):
+    """数据排序请求。"""
+
+    sortBy: list[RpaDataSortField] = Field(default_factory=list)
+
+
+class RpaDataUniqueRequest(RpaDataRowsRequest):
+    """去重请求。"""
+
+    subset: list[str] | None = Field(default=None, description='按指定列去重')
+    keep: Literal['first', 'last', 'none'] = Field(default='first')
+
+
+class RpaDataGroupCountRequest(RpaDataRowsRequest):
+    """分组计数请求。"""
+
+    groupBy: list[str] = Field(default_factory=list)
+
+
+class RpaDataExtractRegexRequest(RpaDataRowsRequest):
+    """正则提取请求。"""
+
+    column: str
+    pattern: str
+    outputColumn: str = Field(default='extracted')
+    caseSensitive: bool = Field(default=True)
+
+
+class RpaDataFileReadRequest(BaseModel):
+    """文件读取请求。"""
+
+    path: str
+    sheetName: str | None = Field(default=None)
+    hasHeader: bool = Field(default=True)
+    encoding: str = Field(default='utf-8')
+    delimiter: str = Field(default=',')
+
+
+class RpaDataFileWriteRequest(RpaDataRowsRequest):
+    """文件写入请求。"""
+
+    path: str
+    sheetName: str = Field(default='Sheet1')
+    includeHeader: bool = Field(default=True)
+    encoding: str = Field(default='utf-8')
+    writeMode: Literal['overwrite', 'append'] = Field(default='overwrite')
+
+
+class RpaDataTableResponse(BaseModel):
+    """表格数据响应。"""
+
+    success: bool = True
+    rowCount: int = 0
+    columns: list[str] = Field(default_factory=list)
+    rows: list[dict] = Field(default_factory=list)
+    error: str | None = None
+
+
+class RpaDataValueResponse(BaseModel):
+    """单值数据响应。"""
+
+    success: bool = True
+    value: Any = None
+    values: list[Any] | None = None
+    error: str | None = None
+
+
+# ============================ wait ============================
+class RpaWaitSleepRequest(BaseModel):
+    """等待指定秒数请求。"""
+
+    seconds: float = Field(default=1, ge=0)
+
+
+# ============================ assert ============================
+class RpaAssertResponse(BaseModel):
+    """断言结果。"""
+
+    success: bool
+    expected: str | None = None
+    actual: str | None = None
+    error: str | None = None
+
+
+# ============================ flow ============================
+class RpaFlowStep(BaseModel):
+    """流程步骤定义。"""
+
+    action: str = Field(description='动作名，如 page.open-url、element.click')
+    name: str | None = Field(default=None, description='步骤别名')
+    params: dict = Field(default_factory=dict, description='动作参数')
+    onFailure: Literal['stop', 'continue', 'ignore'] = Field(default='stop')
+    retryTimes: int = Field(default=0, ge=0)
+    retryDelayMs: int = Field(default=1000)
+
+
+class RpaFlowRunRequest(BaseModel):
+    """流程执行请求。"""
+
+    steps: list[RpaFlowStep]
+    windowId: str | None = Field(default=None)
+    pageId: str | None = Field(default=None)
+
+    class Config:
+        title = 'RpaFlowRunRequest'
+        json_schema_extra = {
+            'example': {
+                'steps': [
+                    {'action': 'page.open-url', 'params': {'url': 'https://example.com'}},
+                    {'action': 'wait.sleep', 'params': {'seconds': 2}},
+                    {'action': 'element.click', 'params': {'selector': '#submit'}},
+                ],
+            },
+        }
+
+
+class RpaFlowStepResult(BaseModel):
+    """单步执行结果。"""
+
+    stepIndex: int
+    action: str
+    name: str | None = None
+    success: bool
+    durationMs: float
+    data: Any = None
+    error: str | None = None
+
+
+class RpaFlowRunResponse(BaseModel):
+    """流程执行响应。"""
+
+    success: bool
+    totalSteps: int
+    succeeded: int
+    failed: int
+    results: list[RpaFlowStepResult] = Field(default_factory=list)
+    totalDurationMs: float = 0
     error: str | None = None

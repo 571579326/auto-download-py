@@ -3,8 +3,19 @@ from fastapi.concurrency import run_in_threadpool
 
 from app.schemas.common import Result
 from app.schemas.rpa import (
+    RpaAssertResponse,
     RpaClipboardResponse,
     RpaClipboardSetRequest,
+    RpaDataCleanRequest,
+    RpaDataExtractRegexRequest,
+    RpaDataFileReadRequest,
+    RpaDataFileWriteRequest,
+    RpaDataFilterRequest,
+    RpaDataGroupCountRequest,
+    RpaDataSortRequest,
+    RpaDataTableResponse,
+    RpaDataUniqueRequest,
+    RpaDataValueResponse,
     RpaElementAttributeRequest,
     RpaElementClickRequest,
     RpaElementInputRequest,
@@ -12,6 +23,8 @@ from app.schemas.rpa import (
     RpaElementPressRequest,
     RpaElementSelectRequest,
     RpaElementTextRequest,
+    RpaFlowRunRequest,
+    RpaFlowRunResponse,
     RpaImageClickManyRequest,
     RpaImageClickRequest,
     RpaImageLocateRequest,
@@ -38,14 +51,19 @@ from app.schemas.rpa import (
     RpaPageWaitUrlRequest,
     RpaScreenshotRequest,
     RpaScreenshotResponse,
+    RpaWaitSleepRequest,
 )
+from app.services.rpa.rpa_assert_service import rpa_assert_service
 from app.services.rpa.rpa_clipboard_service import rpa_clipboard_service
+from app.services.rpa.rpa_data_service import rpa_data_service
 from app.services.rpa.rpa_element_service import rpa_element_service
+from app.services.rpa.rpa_flow_service import rpa_flow_service
 from app.services.rpa.rpa_image_service import rpa_image_service
 from app.services.rpa.rpa_keyboard_service import rpa_keyboard_service
 from app.services.rpa.rpa_locator_service import rpa_locator_service
 from app.services.rpa.rpa_mouse_service import rpa_mouse_service
 from app.services.rpa.rpa_page_service import rpa_page_service
+from app.services.rpa.rpa_wait_service import rpa_wait_service
 
 router = APIRouter(prefix='/rpa', tags=['rpa'])
 
@@ -53,70 +71,60 @@ router = APIRouter(prefix='/rpa', tags=['rpa'])
 # ----------------------------- page -----------------------------
 @router.post('/page/reconnect')
 async def reconnect_page(request: RpaPageTarget = Body(...)):
-    """重连/接管已有页面。"""
     data = await run_in_threadpool(rpa_page_service.reconnect, request)
     return Result(message='rpa page reconnect 成功', data=data)
 
 
 @router.post('/page/info')
 async def page_info(request: RpaPageTarget = Body(...)):
-    """读取页面信息。"""
     data = await run_in_threadpool(rpa_page_service.info, request)
     return Result(message='rpa page info 成功', data=data)
 
 
 @router.post('/page/list')
 async def list_pages(request: RpaPageTarget = Body(...)):
-    """列出窗口页面。"""
     data = await run_in_threadpool(rpa_page_service.list_pages, request)
     return Result(message='rpa page list 成功', data=data)
 
 
 @router.post('/page/activate')
 async def activate_page(request: RpaPageTarget = Body(...)):
-    """激活目标页面。"""
     data = await run_in_threadpool(rpa_page_service.activate, request)
     return Result(message='rpa page activate 成功', data=data)
 
 
 @router.post('/page/open-tab')
 async def open_tab(request: RpaOpenTabRequest = Body(...)):
-    """打开新标签页。"""
     data = await run_in_threadpool(rpa_page_service.open_tab, request)
     return Result(message='rpa page openTab 成功', data=data)
 
 
 @router.post('/page/open-url')
 async def open_url(request: RpaOpenUrlRequest = Body(...)):
-    """打开 URL。"""
     data = await run_in_threadpool(rpa_page_service.open_url, request)
     return Result(message='rpa page openUrl 成功', data=data)
 
 
 @router.post('/page/reload')
 async def reload_page(request: RpaPageReloadRequest = Body(...)):
-    """刷新页面。"""
     data = await run_in_threadpool(rpa_page_service.reload, request)
     return Result(message='rpa page reload 成功', data=data)
 
 
 @router.post('/page/wait-load-state')
 async def wait_load_state(request: RpaPageWaitLoadStateRequest = Body(...)):
-    """等待页面加载状态。"""
     data = await run_in_threadpool(rpa_page_service.wait_load_state, request)
     return Result(message='rpa page waitLoadState 成功', data=data)
 
 
 @router.post('/page/wait-url')
 async def wait_url(request: RpaPageWaitUrlRequest = Body(...)):
-    """等待 URL 包含关键字。"""
     data = await run_in_threadpool(rpa_page_service.wait_url_contains, request)
     return Result(message='rpa page waitUrl 成功', data=data)
 
 
 @router.post('/page/screenshot', response_model=Result[RpaScreenshotResponse])
 async def page_screenshot(request: RpaScreenshotRequest = Body(...)):
-    """页面截图。"""
     data = await run_in_threadpool(rpa_page_service.screenshot, request)
     return Result(message='rpa page screenshot 成功', data=data)
 
@@ -167,21 +175,18 @@ async def element_select(request: RpaElementSelectRequest = Body(...)):
 # ----------------------------- locator -----------------------------
 @router.post('/locator/find', response_model=Result[RpaLocatorFindResponse])
 async def locator_find(request: RpaLocatorFindRequest = Body(...)):
-    """按 selector/文本/属性/role 等条件查找网页 UI 元素。"""
     data = await run_in_threadpool(rpa_locator_service.find, request)
     return Result(message='rpa locator find 成功', data=data)
 
 
 @router.post('/locator/describe', response_model=Result[RpaLocatorFindResponse])
 async def locator_describe(request: RpaLocatorDescribeRequest = Body(...)):
-    """描述 selector 命中的第一个元素。"""
     data = await run_in_threadpool(rpa_locator_service.describe, request)
     return Result(message='rpa locator describe 成功', data=data)
 
 
 @router.post('/locator/count', response_model=Result[RpaLocatorCountResponse])
 async def locator_count(request: RpaLocatorCountRequest = Body(...)):
-    """统计 selector 命中数量。"""
     data = await run_in_threadpool(rpa_locator_service.count, request)
     return Result(message='rpa locator count 成功', data=data)
 
@@ -189,28 +194,24 @@ async def locator_count(request: RpaLocatorCountRequest = Body(...)):
 # ----------------------------- image -----------------------------
 @router.post('/image/locate', response_model=Result[RpaImageLocateResponse])
 async def image_locate(request: RpaImageLocateRequest = Body(...)):
-    """在屏幕上查找图像。"""
     data = await run_in_threadpool(rpa_image_service.locate, request)
     return Result(message='rpa image locate 成功', data=data)
 
 
 @router.post('/image/wait', response_model=Result[RpaImageLocateResponse])
 async def image_wait(request: RpaImageLocateRequest = Body(...)):
-    """等待图像出现。"""
     data = await run_in_threadpool(rpa_image_service.wait, request)
     return Result(message='rpa image wait 成功', data=data)
 
 
 @router.post('/image/click')
 async def image_click(request: RpaImageClickRequest = Body(...)):
-    """查找并点击图像。"""
     data = await run_in_threadpool(rpa_image_service.click, request)
     return Result(message='rpa image click 成功', data=data)
 
 
 @router.post('/image/click-many')
 async def image_click_many(request: RpaImageClickManyRequest = Body(...)):
-    """查找并点击多张图像。"""
     data = await run_in_threadpool(rpa_image_service.click_many, request)
     return Result(message='rpa image clickMany 成功', data=data)
 
@@ -276,3 +277,109 @@ async def clipboard_get():
 async def clipboard_paste():
     data = await run_in_threadpool(rpa_clipboard_service.paste)
     return Result(message='rpa clipboard paste 成功', data=data)
+
+
+# ----------------------------- data -----------------------------
+@router.post('/data/clean', response_model=Result[RpaDataTableResponse])
+async def data_clean(request: RpaDataCleanRequest = Body(...)):
+    data = await run_in_threadpool(rpa_data_service.clean_rows, request)
+    return Result(message='rpa data clean 成功', data=data)
+
+
+@router.post('/data/filter', response_model=Result[RpaDataTableResponse])
+async def data_filter(request: RpaDataFilterRequest = Body(...)):
+    data = await run_in_threadpool(rpa_data_service.filter_rows, request)
+    return Result(message='rpa data filter 成功', data=data)
+
+
+@router.post('/data/sort', response_model=Result[RpaDataTableResponse])
+async def data_sort(request: RpaDataSortRequest = Body(...)):
+    data = await run_in_threadpool(rpa_data_service.sort_rows, request)
+    return Result(message='rpa data sort 成功', data=data)
+
+
+@router.post('/data/unique', response_model=Result[RpaDataTableResponse])
+async def data_unique(request: RpaDataUniqueRequest = Body(...)):
+    data = await run_in_threadpool(rpa_data_service.unique_rows, request)
+    return Result(message='rpa data unique 成功', data=data)
+
+
+@router.post('/data/group-count', response_model=Result[RpaDataValueResponse])
+async def data_group_count(request: RpaDataGroupCountRequest = Body(...)):
+    data = await run_in_threadpool(rpa_data_service.group_count, request)
+    return Result(message='rpa data groupCount 成功', data=data)
+
+
+@router.post('/data/extract-regex', response_model=Result[RpaDataTableResponse])
+async def data_extract_regex(request: RpaDataExtractRegexRequest = Body(...)):
+    data = await run_in_threadpool(rpa_data_service.extract_regex, request)
+    return Result(message='rpa data extractRegex 成功', data=data)
+
+
+@router.post('/data/read-file', response_model=Result[RpaDataTableResponse])
+async def data_read_file(request: RpaDataFileReadRequest = Body(...)):
+    data = await run_in_threadpool(rpa_data_service.read_file, request)
+    return Result(message='rpa data readFile 成功', data=data)
+
+
+@router.post('/data/write-file', response_model=Result[RpaDataValueResponse])
+async def data_write_file(request: RpaDataFileWriteRequest = Body(...)):
+    data = await run_in_threadpool(rpa_data_service.write_file, request)
+    return Result(message='rpa data writeFile 成功', data=data)
+
+
+# ----------------------------- wait -----------------------------
+@router.post('/wait/sleep')
+async def wait_sleep(request: RpaWaitSleepRequest = Body(...)):
+    data = await run_in_threadpool(rpa_wait_service.sleep, request)
+    return Result(message='rpa wait sleep 成功', data=data)
+
+
+@router.post('/wait/element')
+async def wait_element(request: RpaElementTextRequest = Body(...)):
+    data = await run_in_threadpool(rpa_wait_service.element_exists, request)
+    return Result(message='rpa wait element 成功', data=data)
+
+
+@router.post('/wait/image')
+async def wait_image(request: RpaImageLocateRequest = Body(...)):
+    data = await run_in_threadpool(rpa_wait_service.image_exists, request)
+    return Result(message='rpa wait image 成功', data=data)
+
+
+@router.post('/wait/url')
+async def wait_url(request: RpaPageWaitUrlRequest = Body(...)):
+    data = await run_in_threadpool(rpa_wait_service.url_contains, request)
+    return Result(message='rpa wait url 成功', data=data)
+
+
+# ----------------------------- assert -----------------------------
+@router.post('/assert/url-contains', response_model=Result[RpaAssertResponse])
+async def assert_url_contains(request: RpaPageWaitUrlRequest = Body(...)):
+    data = await run_in_threadpool(rpa_assert_service.url_contains, request)
+    return Result(message='rpa assert urlContains 成功', data=data)
+
+
+@router.post('/assert/element-exists', response_model=Result[RpaAssertResponse])
+async def assert_element_exists(request: RpaElementTextRequest = Body(...)):
+    data = await run_in_threadpool(rpa_assert_service.element_exists, request)
+    return Result(message='rpa assert elementExists 成功', data=data)
+
+
+@router.post('/assert/image-exists', response_model=Result[RpaAssertResponse])
+async def assert_image_exists(request: RpaImageLocateRequest = Body(...)):
+    data = await run_in_threadpool(rpa_assert_service.image_exists, request)
+    return Result(message='rpa assert imageExists 成功', data=data)
+
+
+@router.post('/assert/text-contains', response_model=Result[RpaAssertResponse])
+async def assert_text_contains(request: RpaElementTextRequest = Body(...)):
+    data = await run_in_threadpool(rpa_assert_service.text_contains, request)
+    return Result(message='rpa assert textContains 成功', data=data)
+
+
+# ----------------------------- flow -----------------------------
+@router.post('/flow/run', response_model=Result[RpaFlowRunResponse])
+async def flow_run(request: RpaFlowRunRequest = Body(...)):
+    data = await run_in_threadpool(rpa_flow_service.run, request)
+    return Result(message='rpa flow run 成功', data=data)
