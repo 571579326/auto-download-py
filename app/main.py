@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from app.api.browser import router as browser_router
+from app.api.business import router as business_router
 from app.api.health import router as health_router
 from app.api.desktop import router as desktop_router
 from app.browser.manager import browser_session_manager
@@ -24,8 +25,9 @@ settings = get_settings()
 ensure_windows_proactor_event_loop_policy()
 
 app = FastAPI(title=settings.app_name)
-app.include_router(health_router, prefix=settings.app_context_path)
 app.include_router(browser_router, prefix=settings.app_context_path)
+app.include_router(business_router, prefix=settings.app_context_path)
+app.include_router(health_router, prefix=settings.app_context_path)
 app.include_router(desktop_router, prefix=settings.app_context_path)
 
 

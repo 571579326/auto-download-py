@@ -12,6 +12,7 @@ from app.schemas.browser import (
     OpenConfiguredPagesRequest,
     OpenUrlRequest,
     OpenWindowResponse,
+    SeleniumOpenWindowResponse,
     PageInfoResponse,
     PageListResponse,
     ReopenWindowResponse,
@@ -35,6 +36,27 @@ def _resolve_window_id(window_id: str | None, session_id: str | None) -> str:
 async def open_window():
     data = await run_in_threadpool(browser_service.open_browser)
     return Result(message='openWindow 成功', data=data)
+
+
+@router.post('/session/open-pure', response_model=Result[OpenWindowResponse])
+@router.post('/window/open-pure', response_model=Result[OpenWindowResponse])
+async def open_window_pure(
+    url: Annotated[str | None, Query(description='可选。纯净模式启动后直接打开的URL；为空时按快捷方式打开默认页。')] = None,
+    newWindow: Annotated[bool | None, Query(description='可选。是否追加 --new-window；默认不追加，尽量贴近手动快捷方式。')] = None,
+):
+    data = await run_in_threadpool(browser_service.open_browser_pure, url, newWindow)
+    return Result(message='openWindowPure 成功', data=data)
+
+
+@router.post('/session/open-selenium', response_model=Result[SeleniumOpenWindowResponse])
+@router.post('/window/open-selenium', response_model=Result[SeleniumOpenWindowResponse])
+async def open_window_selenium(
+    url: Annotated[str | None, Query(description='可选。Selenium 附加到 9222 后打开的URL；为空时使用 SELENIUM_BROWSER_START_URL。')] = None,
+    newWindow: Annotated[bool | None, Query(description='可选。是否通过 Selenium 新开窗口；为空时使用 SELENIUM_BROWSER_NEW_WINDOW。')] = None,
+    ensureBrowser: Annotated[bool, Query(description='可选。9222 未启动时是否先用纯净模式启动 Chrome；默认 true。')] = True,
+):
+    data = await run_in_threadpool(browser_service.open_browser_selenium, url, newWindow, ensureBrowser)
+    return Result(message='openWindowSelenium 成功', data=data)
 
 
 @router.get('/windows', response_model=Result[WindowListResponse])

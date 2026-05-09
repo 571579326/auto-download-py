@@ -8,6 +8,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
+from urllib.parse import quote
 
 from playwright.sync_api import Browser, BrowserContext, CDPSession, Error, Page, Playwright, sync_playwright
 from sqlalchemy.orm import Session
@@ -27,6 +28,7 @@ from app.schemas.browser import (
     OpenConfiguredPagesRequest,
     OpenUrlRequest,
     OpenWindowResponse,
+    SeleniumOpenWindowResponse,
     PageInfoResponse,
     PageListResponse,
     PageSummary,
@@ -34,7 +36,7 @@ from app.schemas.browser import (
     WindowListResponse,
     WindowSummary,
 )
-from app.utils.http_utils import get_json
+from app.utils.http_utils import get_json, put_json
 from app.utils.port_utils import is_port_open
 
 logger = logging.getLogger(__name__)
@@ -83,6 +85,49 @@ class BrowserSessionManager:
 
         try:
             browser_runtime, launched_now = self._ensure_browser_runtime_with_state()
+
+            if self._is_cdp_http_open_page_mode():
+                start_url = settings.start_url or 'about:blank'
+                page_title = ''
+                page_url = start_url
+                # 如果是已有调试端口，明确创建一个新 target，避免关闭窗口后再次 open 没有可见窗口。
+                # 如果是本次刚启动，Chrome 进程命令行已打开 start_url，不再额外打开第二个空白页。
+                if not launched_now:
+                    try:
+                        target_payload = self._open_url_by_cdp_http(start_url)
+                        page_title = str(target_payload.get('title') or '')
+                        page_url = str(target_payload.get('url') or start_url)
+                    except Exception as exc:
+                        logger.warning('CDP HTTP 创建 session root target 失败，继续返回会话, url=%s, msg=%s', start_url, exc)
+
+                page_row = self._create_page_record(
+                    db=db,
+                    window_row_id=db_window.id,
+                    title=page_title,
+                    url=page_url,
+                    status='1',
+                    sort_no=1,
+                )
+                self._window_runtime_map[window_id] = WindowRuntime(
+                    page_map={},
+                    active_page_db_id=page_row.id,
+                    root_page_db_id=page_row.id,
+                )
+                self._update_window_last_page_info(db, db_window, page_row.title, page_row.url)
+                logger.info(
+                    '打开窗口成功(CDP_HTTP轻量模式), windowId=%s, rootPageId=%s, launchedNow=%s',
+                    window_id,
+                    page_row.id,
+                    launched_now,
+                )
+                return OpenWindowResponse(
+                    windowId=window_id,
+                    sessionId=window_id,
+                    status='1',
+                    userDataDir=settings.profile_dir,
+                    debugPort=settings.debug_port,
+                )
+
             page = self._acquire_window_root_page(browser_runtime, launched_now, settings.start_url or 'about:blank')
             page_row = self._create_page_record(
                 db=db,
@@ -112,6 +157,228 @@ class BrowserSessionManager:
             self._invalidate_window_rows(db, db_window.id)
             raise RuntimeError(f'打开浏览器窗口失败: {exc.__class__.__name__}: {exc}') from exc
 
+    def open_window_pure(
+        self,
+        db: Session,
+        url: str | None = None,
+        new_window: bool | None = None,
+    ) -> OpenWindowResponse:
+        """纯净模式打开浏览器。
+
+        该方法专门用于 Cloudflare 等对自动化接管敏感的网站：
+        - 不调用 Playwright connect_over_cdp；
+        - 不调用 /json/new；
+        - 不读取 page/title/iframe/target；
+        - 不进入 browser-service 单线程队列；
+        - 只用与手动快捷方式尽量一致的 Chrome 命令启动浏览器。
+        """
+        self._ensure_profile_dir()
+        self._ensure_browser_executable_path()
+
+        window_id = uuid.uuid4().hex
+        db_window = AdBrowserWindow(window_id=window_id, status='1')
+        db.add(db_window)
+        db.commit()
+
+        safe_url = (url or settings.pure_browser_start_url or '').strip()
+        use_new_window = settings.pure_browser_new_window if new_window is None else bool(new_window)
+
+        try:
+            browser_process = self._launch_browser_pure_process(safe_url, use_new_window)
+            page_url = safe_url or ''
+            page_row = self._create_page_record(
+                db=db,
+                window_row_id=db_window.id,
+                title='',
+                url=page_url,
+                status='1',
+                sort_no=1,
+            )
+            self._update_window_last_page_info(db, db_window, '', page_url)
+            logger.info(
+                '纯净模式打开浏览器成功, windowId=%s, pid=%s, url=%s, newWindow=%s, profileDir=%s, debugPort=%s',
+                window_id,
+                browser_process.pid,
+                safe_url or '<default>',
+                use_new_window,
+                settings.profile_dir,
+                settings.debug_port,
+            )
+            return OpenWindowResponse(
+                windowId=window_id,
+                sessionId=window_id,
+                status='1',
+                userDataDir=settings.profile_dir,
+                debugPort=settings.debug_port,
+            )
+        except Exception as exc:
+            logger.exception('open_window_pure失败, windowId=%s, msg=%s', window_id, exc)
+            self._invalidate_window_rows(db, db_window.id)
+            raise RuntimeError(f'纯净模式打开浏览器失败: {exc.__class__.__name__}: {exc}') from exc
+
+    def open_window_selenium(
+        self,
+        db: Session,
+        url: str | None = None,
+        new_window: bool | None = None,
+        ensure_browser: bool = True,
+    ) -> SeleniumOpenWindowResponse:
+        """Selenium 附加模式打开浏览器窗口。
+
+        设计目标：
+        - 先保证 chromeTest/Chrome 是用 remote-debugging-port + 独立 profile 启动；
+        - 再用 Selenium debuggerAddress 短暂附加；
+        - 打开目标 URL 后立即 driver.quit() 断开；
+        - 不保存全局 driver，避免长期自动化接管。
+        """
+        self._ensure_profile_dir()
+        self._ensure_browser_executable_path()
+
+        window_id = uuid.uuid4().hex
+        db_window = AdBrowserWindow(window_id=window_id, status='1')
+        db.add(db_window)
+        db.commit()
+
+        safe_url = (url or settings.selenium_browser_start_url or 'about:blank').strip()
+        use_new_window = settings.selenium_browser_new_window if new_window is None else bool(new_window)
+        browser_started_now = False
+        driver_detached = False
+        title = ''
+        opened_url = safe_url
+
+        try:
+            if not is_port_open('127.0.0.1', settings.debug_port):
+                if not ensure_browser:
+                    raise RuntimeError(f'Chrome调试端口未启动: 127.0.0.1:{settings.debug_port}')
+                browser_process = self._launch_browser_pure_process('', False)
+                browser_started_now = True
+                self._wait_for_cdp_ready(browser_process)
+
+            driver = None
+            try:
+                driver = self._create_selenium_driver()
+                page_load_timeout = max(settings.selenium_page_load_timeout_ms / 1000, 1)
+                try:
+                    driver.set_page_load_timeout(page_load_timeout)
+                except Exception as exc:
+                    logger.warning('Selenium设置页面加载超时失败，继续执行, msg=%s', exc)
+
+                if use_new_window:
+                    driver.switch_to.new_window('window')
+
+                # 使用 location.href 发起跳转，避免 driver.get 在 Cloudflare/iframe 场景长期阻塞。
+                if safe_url:
+                    try:
+                        driver.execute_script('window.location.href = arguments[0];', safe_url)
+                    except Exception as exc:
+                        logger.warning('Selenium execute_script跳转失败，尝试 driver.get, url=%s, msg=%s', safe_url, exc)
+                        try:
+                            driver.get(safe_url)
+                        except Exception as get_exc:
+                            logger.warning('Selenium driver.get未正常完成，浏览器可能已经开始加载，继续返回, url=%s, msg=%s', safe_url, get_exc)
+
+                time.sleep(0.2)
+                if settings.selenium_read_page_info:
+                    try:
+                        opened_url = driver.current_url or safe_url
+                    except Exception:
+                        opened_url = safe_url
+                    try:
+                        title = driver.title or ''
+                    except Exception:
+                        title = ''
+                else:
+                    opened_url = safe_url
+                    title = ''
+            finally:
+                if driver is not None:
+                    try:
+                        driver.quit()
+                        driver_detached = True
+                    except Exception as exc:
+                        logger.warning('Selenium driver.quit失败，继续返回, msg=%s', exc)
+
+            self._create_page_record(
+                db=db,
+                window_row_id=db_window.id,
+                title=title,
+                url=opened_url,
+                status='1',
+                sort_no=1,
+            )
+            self._update_window_last_page_info(db, db_window, title, opened_url)
+            logger.info(
+                'Selenium附加模式打开窗口成功, windowId=%s, url=%s, title=%s, newWindow=%s, browserStartedNow=%s, driverDetached=%s',
+                window_id,
+                opened_url,
+                title,
+                use_new_window,
+                browser_started_now,
+                driver_detached,
+            )
+            return SeleniumOpenWindowResponse(
+                windowId=window_id,
+                sessionId=window_id,
+                status='1',
+                userDataDir=settings.profile_dir,
+                debugPort=settings.debug_port,
+                url=opened_url,
+                title=title,
+                newWindow=use_new_window,
+                browserStartedNow=browser_started_now,
+                driverDetached=driver_detached,
+                message='Selenium已附加到现有Chrome，打开URL后已断开driver。',
+            )
+        except Exception as exc:
+            logger.exception('open_window_selenium失败, windowId=%s, msg=%s', window_id, exc)
+            self._invalidate_window_rows(db, db_window.id)
+            raise RuntimeError(f'Selenium附加模式打开浏览器窗口失败: {exc.__class__.__name__}: {exc}') from exc
+
+    def open_config_pages_selenium_once(
+        self,
+        db: Session,
+        config_code: str,
+        new_window: bool | None = None,
+        ensure_browser: bool = True,
+    ) -> BatchOpenPagesResponse:
+        """用 Selenium 短接管方式复现 page-flow 的打开配置页步骤。
+
+        该方法不依赖全局 Playwright runtime，不进入长期接管：
+        - 如 9222 未启动，先用纯净模式启动 Chrome；
+        - Selenium 通过 debuggerAddress 附加到已有 Chrome；
+        - 按 configCode 打开配置 URL；
+        - 立即 driver.quit() 断开；
+        - 仅记录数据库快照，后续图像点击仍走桌面截图。
+        """
+        return self._open_config_pages_by_selenium_once(
+            db=db,
+            config_code=config_code,
+            new_window=new_window,
+            ensure_browser=ensure_browser,
+        )
+
+    def open_config_pages_playwright_once(
+        self,
+        db: Session,
+        config_code: str,
+        new_window: bool | None = None,
+        ensure_browser: bool = True,
+    ) -> BatchOpenPagesResponse:
+        """用 Playwright 短接管方式打开配置页。
+
+        这是原 page-flow 的低强度 Playwright 版本：
+        - 不调用 open_window，不创建全局 BrowserRuntime；
+        - 不做 Chrome diagnostics / extension diagnostics；
+        - 不等待 DOMContentLoaded / iframe / load；
+        - 连接 CDP 后只执行打开 URL 的必要动作，然后立刻停止 Playwright。
+        """
+        return self._open_config_pages_by_playwright_once(
+            db=db,
+            config_code=config_code,
+            new_window=new_window,
+            ensure_browser=ensure_browser,
+        )
+
     def list_windows(self, db: Session) -> WindowListResponse:
         rows = (
             db.query(AdBrowserWindow)
@@ -136,6 +403,20 @@ class BrowserSessionManager:
         runtime, db_window = self._get_valid_window_runtime(db, window_id)
         req = request or NewTabRequest()
         with runtime.lock:
+            if self._is_cdp_http_open_page_mode():
+                page_row = self._create_cdp_http_page_record(
+                    db=db,
+                    db_window=db_window,
+                    url=req.url,
+                    status='1' if req.bringToFront else '0',
+                    sort_no=self._next_sort_no(db, db_window.id),
+                )
+                if req.bringToFront:
+                    self._set_active_page(db, db_window, runtime, page_row.id)
+                else:
+                    self._update_window_last_page_info(db, db_window, page_row.title, page_row.url)
+                return self._build_page_info_response(db, db_window, runtime, page_row)
+
             page_row, _ = self._create_managed_page_in_window(
                 db=db,
                 db_window=db_window,
@@ -150,6 +431,28 @@ class BrowserSessionManager:
     def open_url(self, db: Session, window_id: str, request: OpenUrlRequest) -> PageInfoResponse:
         runtime, db_window = self._get_valid_window_runtime(db, window_id)
         with runtime.lock:
+            if self._is_cdp_http_open_page_mode():
+                if request.newTab:
+                    page_row = self._create_cdp_http_page_record(
+                        db=db,
+                        db_window=db_window,
+                        url=request.url,
+                        status='1' if request.bringToFront else '0',
+                        sort_no=self._next_sort_no(db, db_window.id),
+                    )
+                else:
+                    page_row = self._resolve_cdp_http_page_row(db, db_window, request.pageId, request.urlContains)
+                    target_payload = self._open_url_by_cdp_http(request.url)
+                    page_row.title = str(target_payload.get('title') or '')[:255] or None
+                    page_url = str(target_payload.get('url') or request.url)
+                    page_row.url = page_url[:1000] if page_url else None
+                    db.commit()
+                if request.bringToFront:
+                    self._set_active_page(db, db_window, runtime, page_row.id)
+                else:
+                    self._update_window_last_page_info(db, db_window, page_row.title, page_row.url)
+                return self._build_page_info_response(db, db_window, runtime, page_row)
+
             if request.newTab:
                 page_row, page = self._create_managed_page_in_window(
                     db=db,
@@ -189,6 +492,43 @@ class BrowserSessionManager:
             raise ValueError(f'no valid page config found: configCode={config_code}')
 
         with runtime.lock:
+            if self._is_cdp_http_open_page_mode():
+                opened_rows: list[AdBrowserPage] = []
+                sort_no = self._next_sort_no(db, db_window.id)
+                for index, config_row in enumerate(config_rows):
+                    active = request.bringToFront and index == len(config_rows) - 1
+                    page_row = self._create_cdp_http_page_record(
+                        db=db,
+                        db_window=db_window,
+                        url=config_row.url,
+                        status='1' if active else '0',
+                        sort_no=sort_no,
+                    )
+                    opened_rows.append(page_row)
+                    sort_no += 1
+                if request.bringToFront and opened_rows:
+                    self._set_active_page(db, db_window, runtime, opened_rows[-1].id)
+                elif opened_rows:
+                    self._update_window_last_page_info(db, db_window, opened_rows[-1].title, opened_rows[-1].url)
+
+                opened_pages = [
+                    self._build_page_info_response(db, db_window, runtime, row)
+                    for row in opened_rows
+                ]
+                logger.info(
+                    'open_config_pages success(CDP_HTTP轻量模式), windowId=%s, configCode=%s, opened=%s',
+                    window_id,
+                    config_code,
+                    len(opened_pages),
+                )
+                return BatchOpenPagesResponse(
+                    windowId=window_id,
+                    sessionId=window_id,
+                    configCode=config_code,
+                    total=len(opened_pages),
+                    openedPages=opened_pages,
+                )
+
             _, opener_page = self._resolve_anchor_page_for_window(db, db_window, runtime)
             items = [
                 BatchOpenPageItem(
@@ -270,6 +610,11 @@ class BrowserSessionManager:
     ) -> PageInfoResponse:
         runtime, db_window = self._get_valid_window_runtime(db, window_id)
         with runtime.lock:
+            if self._is_cdp_http_open_page_mode():
+                page_row = self._resolve_cdp_http_page_row(db, db_window, page_id, url_contains)
+                self._set_active_page(db, db_window, runtime, page_row.id)
+                return self._build_page_info_response(db, db_window, runtime, page_row)
+
             page_row, page = self._resolve_managed_page(db, db_window, runtime, page_id, url_contains)
             self._sync_page_snapshot(db, page_row, page)
             self._set_active_page(db, db_window, runtime, page_row.id)
@@ -284,6 +629,11 @@ class BrowserSessionManager:
     ) -> PageInfoResponse:
         runtime, db_window = self._get_valid_window_runtime(db, window_id)
         with runtime.lock:
+            if self._is_cdp_http_open_page_mode():
+                page_row = self._resolve_cdp_http_page_row(db, db_window, page_id, url_contains)
+                self._set_active_page(db, db_window, runtime, page_row.id)
+                return self._build_page_info_response(db, db_window, runtime, page_row)
+
             page_row, page = self._resolve_managed_page(db, db_window, runtime, page_id, url_contains)
             page.bring_to_front()
             self._sync_page_snapshot(db, page_row, page)
@@ -299,6 +649,26 @@ class BrowserSessionManager:
     ) -> ClosePageResponse:
         runtime, db_window = self._get_valid_window_runtime(db, window_id)
         with runtime.lock:
+            if self._is_cdp_http_open_page_mode():
+                page_row = self._resolve_cdp_http_page_row(db, db_window, page_id, url_contains)
+                current_page_id = self._page_id_by_db_id(page_row.id)
+                self._invalidate_page_local(db, db_window, runtime, page_row.id, close_page=False)
+                remaining_rows = self._select_valid_page_rows(db, db_window.id)
+                if remaining_rows:
+                    next_row = next((row for row in remaining_rows if row.status == '1'), remaining_rows[-1])
+                    self._set_active_page(db, db_window, runtime, next_row.id)
+                else:
+                    runtime.active_page_db_id = None
+                    self._update_window_last_page_info(db, db_window, None, None)
+                logger.info('关闭页面记录成功(CDP_HTTP轻量模式), windowId=%s, pageId=%s, remaining=%s', window_id, current_page_id, len(remaining_rows))
+                return ClosePageResponse(
+                    windowId=window_id,
+                    sessionId=window_id,
+                    pageId=current_page_id,
+                    closed=True,
+                    remainingPages=len(remaining_rows),
+                )
+
             page_row, page = self._resolve_managed_page(db, db_window, runtime, page_id, url_contains)
             current_page_id = self._page_id_by_db_id(page_row.id)
             self._invalidate_page_local(db, db_window, runtime, page_row.id, close_page=True)
@@ -497,10 +867,6 @@ class BrowserSessionManager:
         runtime, _ = self._ensure_browser_runtime_with_state()
         return runtime
 
-    def _ensure_browser_runtime(self) -> BrowserRuntime:
-        runtime, _ = self._ensure_browser_runtime_with_state()
-        return runtime
-
     def _ensure_browser_runtime_with_state(self) -> tuple[BrowserRuntime, bool]:
         with self._global_lock:
             runtime = self._browser_runtime
@@ -602,14 +968,72 @@ class BrowserSessionManager:
         return runtime, db_window
 
     # ----------------------------- page/window operations -----------------------------
+    def _create_cdp_http_page_record(
+        self,
+        db: Session,
+        db_window: AdBrowserWindow,
+        url: str,
+        status: str,
+        sort_no: int,
+    ) -> AdBrowserPage:
+        safe_url = url or 'about:blank'
+        target_payload = self._open_url_by_cdp_http(safe_url)
+        page_title = str(target_payload.get('title') or '')
+        page_url = str(target_payload.get('url') or safe_url)
+        return self._create_page_record(
+            db=db,
+            window_row_id=db_window.id,
+            title=page_title,
+            url=page_url,
+            status=status,
+            sort_no=sort_no,
+        )
+
+    def _resolve_cdp_http_page_row(
+        self,
+        db: Session,
+        db_window: AdBrowserWindow,
+        page_id: str | None,
+        url_contains: str | None,
+    ) -> AdBrowserPage:
+        page_rows = self._select_valid_page_rows(db, db_window.id)
+        if page_id:
+            page_db_id = self._parse_page_id(page_id)
+            for row in page_rows:
+                if row.id == page_db_id:
+                    return row
+            raise ValueError(f'pageId不存在或已失效: {page_id}')
+        if url_contains:
+            for row in reversed(page_rows):
+                if url_contains in (row.url or ''):
+                    return row
+        active_row = next((row for row in page_rows if row.status == '1'), None)
+        if active_row is not None:
+            return active_row
+        if page_rows:
+            return page_rows[-1]
+        return self._create_page_record(
+            db=db,
+            window_row_id=db_window.id,
+            title='',
+            url=settings.start_url or 'about:blank',
+            status='1',
+            sort_no=1,
+        )
+
     def _create_new_browser_window_page(self, browser_runtime: BrowserRuntime, url: str) -> Page:
         safe_url = url or 'about:blank'
-        try:
+
+        if self._is_native_open_page_mode():
+            logger.info('使用原生Chrome命令行方式创建新窗口, url=%s', safe_url)
             return self._do_create_new_browser_window_page(browser_runtime, safe_url)
+
+        try:
+            return self._do_cdp_create_new_browser_window_page(browser_runtime, safe_url)
         except Exception as exc:
             if not self._should_rebuild_browser_runtime(exc):
                 raise
-            logger.warning('创建浏览器新窗口时检测到运行时已关闭，准备重建后重试, msg=%s', exc)
+            logger.warning('CDP创建窗口时检测到运行时已关闭，准备重建后重试, msg=%s', exc)
             fresh_runtime, _ = self._rebuild_browser_runtime()
             return self._do_create_new_browser_window_page(fresh_runtime, safe_url)
 
@@ -619,6 +1043,24 @@ class BrowserSessionManager:
             browser_process = self._launch_browser_new_window_process(url)
             logger.info('requested native Chrome new window, pid=%s, url=%s', browser_process.pid, url)
             page = self._wait_for_new_page(browser_runtime.context, before_page_ids, url)
+            self._wait_for_domcontentloaded_quietly(page, settings.start_timeout_ms)
+            return page
+
+    def _do_cdp_create_new_browser_window_page(self, browser_runtime: BrowserRuntime, url: str) -> Page:
+        with browser_runtime.lock:
+            before_page_ids = {id(page) for page in self._get_alive_pages(browser_runtime.context.pages)}
+            safe_url = url or 'about:blank'
+            try:
+                result = browser_runtime.browser_cdp.send(
+                    "Target.createTarget",
+                    {"url": safe_url, "newWindow": True},
+                )
+                target_id = result.get("targetId", "")
+                logger.info("CDP创建新浏览器窗口成功, targetId=%s, url=%s", target_id, safe_url)
+            except Exception as exc:
+                logger.warning("CDP创建新窗口失败，回退到子进程方式, msg=%s", exc)
+                return self._do_create_new_browser_window_page(browser_runtime, safe_url)
+            page = self._wait_for_new_page(browser_runtime.context, before_page_ids, safe_url)
             self._wait_for_domcontentloaded_quietly(page, settings.start_timeout_ms)
             return page
 
@@ -730,6 +1172,11 @@ class BrowserSessionManager:
             raise RuntimeError('浏览器运行时未挂接')
 
         safe_url = url or 'about:blank'
+
+        if self._is_native_open_page_mode():
+            logger.info('使用原生Chrome命令行方式打开子页面, url=%s', safe_url)
+            return self._create_new_browser_window_page(browser_runtime, safe_url)
+
         with browser_runtime.lock:
             with opener_page.expect_popup(timeout=max(settings.start_timeout_ms, 10_000)) as popup_info:
                 opener_page.evaluate('(targetUrl) => window.open(targetUrl, "_blank")', safe_url)
@@ -1207,6 +1654,298 @@ class BrowserSessionManager:
     def _build_cdp_url(self) -> str:
         return f'http://127.0.0.1:{settings.debug_port}'
 
+    def _is_native_open_page_mode(self) -> bool:
+        return (settings.open_page_mode or '').strip().lower() == 'native'
+
+    def _is_cdp_http_open_page_mode(self) -> bool:
+        return (settings.open_page_mode or '').strip().lower() in {'cdp_http', 'cdp-http', 'cdphttp', 'http'}
+
+    def _open_url_by_cdp_http(self, url: str) -> dict:
+        safe_url = url or 'about:blank'
+        encoded_url = quote(safe_url, safe='')
+        endpoint = f'{self._build_cdp_url()}/json/new?{encoded_url}'
+        timeout = max(settings.cdp_http_open_timeout_ms / 1000, 1)
+        try:
+            payload = put_json(endpoint, timeout=timeout)
+        except Exception as exc:
+            logger.warning('CDP HTTP PUT /json/new 失败，尝试 GET 回退, url=%s, msg=%s', safe_url, exc)
+            payload = get_json(endpoint, timeout=timeout)
+        if not isinstance(payload, dict):
+            raise RuntimeError(f'CDP HTTP打开页面返回值异常: type={type(payload).__name__}, payload={payload}')
+        logger.info(
+            'CDP HTTP打开页面请求成功, targetId=%s, url=%s',
+            payload.get('id') or payload.get('targetId'),
+            payload.get('url') or safe_url,
+        )
+        return payload
+
+    def _create_selenium_driver(self):
+        try:
+            from selenium import webdriver
+            from selenium.webdriver.chrome.options import Options
+            from selenium.webdriver.chrome.service import Service
+        except ImportError as exc:
+            raise RuntimeError('缺少 selenium 依赖，请先执行: uv add selenium') from exc
+
+        options = Options()
+        options.debugger_address = f'127.0.0.1:{settings.debug_port}'
+        if settings.browser_executable_path:
+            options.binary_location = settings.browser_executable_path
+
+        chromedriver_path = (settings.selenium_chromedriver_path or '').strip()
+        if chromedriver_path:
+            service = Service(chromedriver_path)
+            return webdriver.Chrome(service=service, options=options)
+        return webdriver.Chrome(options=options)
+
+    def _open_config_pages_by_selenium_once(
+        self,
+        db: Session,
+        config_code: str,
+        new_window: bool | None,
+        ensure_browser: bool,
+    ) -> BatchOpenPagesResponse:
+        safe_config_code = (config_code or '').strip()
+        if not safe_config_code:
+            raise ValueError('configCode cannot be empty')
+
+        self._ensure_profile_dir()
+        self._ensure_browser_executable_path()
+        config_rows = self._select_valid_page_config_rows(db, safe_config_code)
+        if not config_rows:
+            raise ValueError(f'no valid page config found: configCode={safe_config_code}')
+
+        window_id = uuid.uuid4().hex
+        db_window = AdBrowserWindow(window_id=window_id, status='1')
+        db.add(db_window)
+        db.commit()
+
+        browser_started_now = False
+        driver = None
+        opened_rows: list[AdBrowserPage] = []
+        use_new_window = settings.selenium_browser_new_window if new_window is None else bool(new_window)
+        try:
+            if not is_port_open('127.0.0.1', settings.debug_port):
+                if not ensure_browser:
+                    raise RuntimeError(f'Chrome调试端口未启动: 127.0.0.1:{settings.debug_port}')
+                browser_process = self._launch_browser_pure_process('', False)
+                browser_started_now = True
+                self._wait_for_cdp_ready(browser_process)
+
+            driver = self._create_selenium_driver()
+            page_load_timeout = max(settings.selenium_page_load_timeout_ms / 1000, 1)
+            try:
+                driver.set_page_load_timeout(page_load_timeout)
+            except Exception as exc:
+                logger.warning('Selenium设置页面加载超时失败，继续执行, msg=%s', exc)
+
+            sort_no = 1
+            for index, config_row in enumerate(config_rows):
+                safe_url = config_row.url or 'about:blank'
+                active = index == len(config_rows) - 1
+                if use_new_window or index > 0:
+                    try:
+                        driver.switch_to.new_window('window')
+                    except Exception as exc:
+                        logger.warning('Selenium新建窗口失败，继续尝试在当前窗口打开, url=%s, msg=%s', safe_url, exc)
+
+                try:
+                    driver.execute_script('window.location.href = arguments[0];', safe_url)
+                except Exception as exc:
+                    logger.warning('Selenium execute_script跳转失败，尝试 driver.get, url=%s, msg=%s', safe_url, exc)
+                    try:
+                        driver.get(safe_url)
+                    except Exception as get_exc:
+                        logger.warning('Selenium driver.get未正常完成，浏览器可能已开始加载，继续记录, url=%s, msg=%s', safe_url, get_exc)
+
+                time.sleep(0.2)
+                page_title = ''
+                page_url = safe_url
+                if settings.selenium_read_page_info:
+                    try:
+                        page_url = driver.current_url or safe_url
+                    except Exception:
+                        page_url = safe_url
+                    try:
+                        page_title = driver.title or ''
+                    except Exception:
+                        page_title = ''
+
+                row = self._create_page_record(
+                    db=db,
+                    window_row_id=db_window.id,
+                    title=page_title,
+                    url=page_url,
+                    status='1' if active else '0',
+                    sort_no=sort_no,
+                )
+                opened_rows.append(row)
+                sort_no += 1
+
+            if opened_rows:
+                self._update_window_last_page_info(db, db_window, opened_rows[-1].title, opened_rows[-1].url)
+
+            logger.info(
+                'Selenium短接管打开配置页完成, windowId=%s, configCode=%s, opened=%s, browserStartedNow=%s, driverWillDetach=True',
+                window_id,
+                safe_config_code,
+                len(opened_rows),
+                browser_started_now,
+            )
+            return BatchOpenPagesResponse(
+                windowId=window_id,
+                sessionId=window_id,
+                configCode=safe_config_code,
+                total=len(opened_rows),
+                openedPages=[
+                    self._build_page_info_response(db, db_window, WindowRuntime(active_page_db_id=opened_rows[-1].id if opened_rows else None), row)
+                    for row in opened_rows
+                ],
+            )
+        except Exception as exc:
+            logger.exception('Selenium短接管打开配置页失败, windowId=%s, configCode=%s, msg=%s', window_id, safe_config_code, exc)
+            self._invalidate_window_rows(db, db_window.id)
+            raise
+        finally:
+            if driver is not None:
+                try:
+                    driver.quit()
+                except Exception as exc:
+                    logger.warning('Selenium短接管 driver.quit 失败，继续返回, msg=%s', exc)
+
+    def _open_config_pages_by_playwright_once(
+        self,
+        db: Session,
+        config_code: str,
+        new_window: bool | None,
+        ensure_browser: bool,
+    ) -> BatchOpenPagesResponse:
+        safe_config_code = (config_code or '').strip()
+        if not safe_config_code:
+            raise ValueError('configCode cannot be empty')
+
+        self._ensure_profile_dir()
+        self._ensure_browser_executable_path()
+        config_rows = self._select_valid_page_config_rows(db, safe_config_code)
+        if not config_rows:
+            raise ValueError(f'no valid page config found: configCode={safe_config_code}')
+
+        window_id = uuid.uuid4().hex
+        db_window = AdBrowserWindow(window_id=window_id, status='1')
+        db.add(db_window)
+        db.commit()
+
+        opened_rows: list[AdBrowserPage] = []
+        browser_started_now = False
+        use_new_window = settings.playwright_once_new_window if new_window is None else bool(new_window)
+        playwright: Playwright | None = None
+        browser: Browser | None = None
+        try:
+            if not is_port_open('127.0.0.1', settings.debug_port):
+                if not ensure_browser:
+                    raise RuntimeError(f'Chrome调试端口未启动: 127.0.0.1:{settings.debug_port}')
+                browser_process = self._launch_browser_pure_process('', False)
+                browser_started_now = True
+                self._wait_for_cdp_ready(browser_process)
+
+            ensure_windows_proactor_event_loop_policy()
+            self._log_event_loop_policy('before_playwright_once_attach')
+            playwright = sync_playwright().start()
+            browser = playwright.chromium.connect_over_cdp(
+                self._build_cdp_url(),
+                timeout=settings.playwright_once_connect_timeout_ms,
+                slow_mo=0,
+            )
+            context = browser.contexts[0] if browser.contexts else browser.new_context()
+
+            sort_no = 1
+            reusable_page: Page | None = None
+            if not use_new_window:
+                alive_pages = self._get_alive_pages(context.pages)
+                reusable_page = alive_pages[-1] if alive_pages else None
+
+            for index, config_row in enumerate(config_rows):
+                safe_url = config_row.url or 'about:blank'
+                active = index == len(config_rows) - 1
+                page: Page | None = None
+                if use_new_window or reusable_page is None or index > 0:
+                    try:
+                        page = context.new_page()
+                    except Exception as exc:
+                        logger.warning('Playwright短接管 new_page 失败，尝试复用现有页面, url=%s, msg=%s', safe_url, exc)
+                        alive_pages = self._get_alive_pages(context.pages)
+                        page = alive_pages[-1] if alive_pages else None
+                else:
+                    page = reusable_page
+
+                if page is None:
+                    raise RuntimeError('Playwright短接管未找到可用页面')
+
+                try:
+                    page.evaluate('(targetUrl) => { window.location.href = targetUrl; return true; }', safe_url)
+                except Exception as exc:
+                    logger.warning('Playwright短接管 evaluate跳转失败，尝试 goto(commit), url=%s, msg=%s', safe_url, exc)
+                    try:
+                        page.goto(
+                            safe_url,
+                            wait_until='commit',
+                            timeout=settings.playwright_once_navigation_timeout_ms,
+                        )
+                    except Exception as goto_exc:
+                        logger.warning('Playwright短接管 goto 未正常完成，浏览器可能已开始加载，继续记录, url=%s, msg=%s', safe_url, goto_exc)
+
+                time.sleep(0.2)
+                page_title = ''
+                page_url = safe_url
+                if settings.playwright_once_read_page_info:
+                    page_title = self._safe_title(page)
+                    page_url = self._safe_url(page) or safe_url
+
+                row = self._create_page_record(
+                    db=db,
+                    window_row_id=db_window.id,
+                    title=page_title,
+                    url=page_url,
+                    status='1' if active else '0',
+                    sort_no=sort_no,
+                )
+                opened_rows.append(row)
+                sort_no += 1
+
+            if opened_rows:
+                self._update_window_last_page_info(db, db_window, opened_rows[-1].title, opened_rows[-1].url)
+
+            logger.info(
+                'Playwright短接管打开配置页完成, windowId=%s, configCode=%s, opened=%s, browserStartedNow=%s, willDetach=True',
+                window_id,
+                safe_config_code,
+                len(opened_rows),
+                browser_started_now,
+            )
+            active_id = opened_rows[-1].id if opened_rows else None
+            response_runtime = WindowRuntime(active_page_db_id=active_id, root_page_db_id=opened_rows[0].id if opened_rows else None)
+            return BatchOpenPagesResponse(
+                windowId=window_id,
+                sessionId=window_id,
+                configCode=safe_config_code,
+                total=len(opened_rows),
+                openedPages=[
+                    self._build_page_info_response(db, db_window, response_runtime, row)
+                    for row in opened_rows
+                ],
+            )
+        except Exception as exc:
+            logger.exception('Playwright短接管打开配置页失败, windowId=%s, configCode=%s, msg=%s', window_id, safe_config_code, exc)
+            self._invalidate_window_rows(db, db_window.id)
+            raise
+        finally:
+            # 不调用 browser.close()，避免把用户正在使用的 Chrome 关掉；只停止本次 Playwright 驱动连接。
+            if playwright is not None:
+                try:
+                    playwright.stop()
+                except Exception as exc:
+                    logger.warning('Playwright短接管 stop 失败，继续返回, msg=%s', exc)
+
     def _ensure_profile_dir(self) -> None:
         os.makedirs(settings.profile_dir, exist_ok=True)
 
@@ -1235,6 +1974,29 @@ class BrowserSessionManager:
         )
         return self._popen_browser_process(command)
 
+    def _launch_browser_pure_process(self, url: str, new_window: bool) -> subprocess.Popen:
+        command = self._build_browser_pure_command(url, new_window)
+        logger.info(
+            'starting Chrome process by pure mode, command=%s, profileDir=%s, debugPort=%s',
+            command,
+            settings.profile_dir,
+            settings.debug_port,
+        )
+        return self._popen_browser_pure_process(command)
+
+    def _build_browser_pure_command(self, url: str, new_window: bool) -> list[str]:
+        command = [
+            settings.browser_executable_path,
+            f'--remote-debugging-port={settings.debug_port}',
+            f'--user-data-dir={settings.profile_dir}',
+        ]
+        if new_window:
+            command.append('--new-window')
+        safe_url = (url or '').strip()
+        if safe_url:
+            command.append(safe_url)
+        return command
+
     def _build_browser_process_command(self, url: str) -> list[str]:
         command = [
             settings.browser_executable_path,
@@ -1249,6 +2011,15 @@ class BrowserSessionManager:
         if url:
             command.append(url)
         return command
+
+    def _popen_browser_pure_process(self, command: list[str]) -> subprocess.Popen:
+        return subprocess.Popen(
+            command,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL,
+            close_fds=True,
+        )
 
     def _popen_browser_process(self, command: list[str]) -> subprocess.Popen:
         return subprocess.Popen(
