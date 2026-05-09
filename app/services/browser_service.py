@@ -4,6 +4,14 @@ from typing import TypeVar
 
 from app.browser.manager import browser_session_manager
 from app.db.session import SessionLocal
+
+from app.schemas.rpa import (
+    RpaPageReloadRequest,
+    RpaPageWaitLoadStateRequest,
+    RpaPageWaitUrlRequest,
+    RpaScreenshotRequest,
+    RpaScreenshotResponse,
+)
 from app.schemas.browser import (
     BatchOpenPagesResponse,
     BingHuyaRequest,
@@ -179,6 +187,32 @@ class BrowserService:
 
     def close_browser(self, window_id: str) -> InvalidateWindowResponse:
         return self._execute(browser_session_manager.invalidate_window, window_id)
+
+    # ----------------------------- RPA page actions -----------------------------
+    def rpa_reconnect_page(
+        self,
+        window_id: str,
+        page_id: str | None = None,
+        url_contains: str | None = None,
+    ) -> PageInfoResponse:
+        """RPA动作：重连/接管已有页面。"""
+        return self._execute(browser_session_manager.rpa_reconnect_page, window_id, page_id, url_contains)
+
+    def rpa_reload_page(self, request: RpaPageReloadRequest) -> PageInfoResponse:
+        """RPA动作：刷新页面。"""
+        return self._execute(browser_session_manager.rpa_reload_page, request)
+
+    def rpa_wait_load_state(self, request: RpaPageWaitLoadStateRequest) -> PageInfoResponse:
+        """RPA动作：等待页面加载状态。"""
+        return self._execute(browser_session_manager.rpa_wait_load_state, request)
+
+    def rpa_wait_url_contains(self, request: RpaPageWaitUrlRequest) -> PageInfoResponse:
+        """RPA动作：等待URL包含关键字。"""
+        return self._execute(browser_session_manager.rpa_wait_url_contains, request)
+
+    def rpa_screenshot(self, request: RpaScreenshotRequest) -> RpaScreenshotResponse:
+        """RPA动作：页面截图。"""
+        return self._execute(browser_session_manager.rpa_screenshot, request)
 
 
 browser_service = BrowserService()

@@ -5,6 +5,7 @@ import subprocess
 import threading
 import time
 import uuid
+from pathlib import Path
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional
@@ -35,6 +36,14 @@ from app.schemas.browser import (
     ReopenWindowResponse,
     WindowListResponse,
     WindowSummary,
+)
+
+from app.schemas.rpa import (
+    RpaPageReloadRequest,
+    RpaPageWaitLoadStateRequest,
+    RpaPageWaitUrlRequest,
+    RpaScreenshotRequest,
+    RpaScreenshotResponse,
 )
 from app.utils.http_utils import get_json, put_json
 from app.utils.port_utils import is_port_open
@@ -756,6 +765,101 @@ class BrowserSessionManager:
                 response.url,
             )
             return response
+
+    # ----------------------------- RPA page helpers -----------------------------
+    def _resolve_rpa_page(
+        self,
+        db: Session,
+        db_window: AdBrowserWindow,
+        window_runtime: WindowRuntime,
+        page_id: str | None = None,
+        url_contains: str | None = None,
+    ) -> tuple[AdBrowserPage, Page]:
+        """解析 RPA 操作目标页。"""
+        if page_id:
+            return self._resolve_managed_page(db, db_window, window_runtime, page_id, url_contains)
+        try:
+            return self._resolve_managed_page(db, db_window, window_runtime, None, url_contains)
+        except Exception as managed_exc:
+            logger.info(
+                'RPA目标页未在已记录页面中命中，准备短接管浏览器页面, windowId=%s, urlContains=%s, reason=%s',
+                db_window.window_id,
+                url_contains,
+                managed_exc,
+            )
+        page = self._resolve_takeover_page(window_runtime, url_contains)
+        page_row = self._find_page_row_by_object(db, db_window, window_runtime, page)
+        if page_row is None:
+            page_row = self._adopt_untracked_page(db, db_window, window_runtime, page)
+        return page_row, page
+
+    def rpa_reconnect_page(
+        self,
+        db: Session,
+        window_id: str,
+        page_id: str | None = None,
+        url_contains: str | None = None,
+    ) -> PageInfoResponse:
+        """RPA 公共动作：重连/接管页面并返回页面信息。"""
+        return self.takeover_latest_page_info(db, window_id, page_id, url_contains)
+
+    def rpa_reload_page(self, db: Session, request: RpaPageReloadRequest) -> PageInfoResponse:
+        """RPA 公共动作：刷新目标页面。"""
+        runtime, db_window = self._get_valid_window_runtime(db, request.windowId)
+        with runtime.lock:
+            page_row, page = self._resolve_rpa_page(db, db_window, runtime, request.pageId, request.urlContains)
+            page.reload(wait_until=request.waitUntil, timeout=request.timeoutMs)
+            self._sync_page_snapshot(db, page_row, page)
+            self._set_active_page(db, db_window, runtime, page_row.id)
+            return self._build_page_info_response(db, db_window, runtime, page_row)
+
+    def rpa_wait_load_state(self, db: Session, request: RpaPageWaitLoadStateRequest) -> PageInfoResponse:
+        """RPA 公共动作：等待目标页面达到指定加载状态。"""
+        runtime, db_window = self._get_valid_window_runtime(db, request.windowId)
+        with runtime.lock:
+            page_row, page = self._resolve_rpa_page(db, db_window, runtime, request.pageId, request.urlContains)
+            page.wait_for_load_state(request.state, timeout=request.timeoutMs)
+            self._sync_page_snapshot(db, page_row, page)
+            self._set_active_page(db, db_window, runtime, page_row.id)
+            return self._build_page_info_response(db, db_window, runtime, page_row)
+
+    def rpa_wait_url_contains(self, db: Session, request: RpaPageWaitUrlRequest) -> PageInfoResponse:
+        """RPA 公共动作：等待当前 URL 包含指定关键字。"""
+        runtime, db_window = self._get_valid_window_runtime(db, request.windowId)
+        with runtime.lock:
+            page_row, page = self._resolve_rpa_page(db, db_window, runtime, request.pageId, request.urlContains)
+            deadline = time.time() + request.timeoutMs / 1000
+            while time.time() < deadline:
+                current_url = self._safe_url(page)
+                if request.urlContainsTarget in current_url:
+                    self._sync_page_snapshot(db, page_row, page)
+                    self._set_active_page(db, db_window, runtime, page_row.id)
+                    return self._build_page_info_response(db, db_window, runtime, page_row)
+                time.sleep(request.retryIntervalMs / 1000)
+            raise RuntimeError(f'等待URL包含关键字超时: {request.urlContainsTarget}, current={self._safe_url(page)}')
+
+    def rpa_screenshot(self, db: Session, request: RpaScreenshotRequest) -> RpaScreenshotResponse:
+        """RPA 公共动作：对目标页面截图并保存到本地文件。"""
+        runtime, db_window = self._get_valid_window_runtime(db, request.windowId)
+        with runtime.lock:
+            page_row, page = self._resolve_rpa_page(db, db_window, runtime, request.pageId, request.urlContains)
+            if request.path and request.path.strip():
+                output_path = Path(request.path.strip())
+            else:
+                output_dir = Path('screenshots')
+                output_dir.mkdir(parents=True, exist_ok=True)
+                output_path = output_dir / f'rpa_{request.windowId}_{page_row.id}_{int(time.time() * 1000)}.png'
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            page.screenshot(path=str(output_path), full_page=request.fullPage)
+            self._sync_page_snapshot(db, page_row, page)
+            return RpaScreenshotResponse(
+                success=True,
+                path=str(output_path),
+                windowId=request.windowId,
+                pageId=self._page_id_by_db_id(page_row.id),
+                title=page_row.title or '',
+                url=page_row.url or '',
+            )
 
     def reopen_window(self, db: Session, old_window_id: str) -> ReopenWindowResponse:
         old_window = self._select_window_by_window_id(db, old_window_id)

@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from app.api.browser import router as browser_router
 from app.api.business import router as business_router
 from app.api.health import router as health_router
+from app.api.rpa import router as rpa_router
 from app.api.desktop import router as desktop_router
 from app.browser.manager import browser_session_manager
 from app.core.asyncio_policy import ensure_windows_proactor_event_loop_policy
@@ -29,6 +30,7 @@ app.include_router(browser_router, prefix=settings.app_context_path)
 app.include_router(business_router, prefix=settings.app_context_path)
 app.include_router(health_router, prefix=settings.app_context_path)
 app.include_router(desktop_router, prefix=settings.app_context_path)
+app.include_router(rpa_router, prefix=settings.app_context_path)
 
 
 @app.on_event('startup')
