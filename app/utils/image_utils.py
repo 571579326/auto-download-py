@@ -2,27 +2,10 @@ import logging
 import time
 
 from app.schemas.desktop import ClickImageRequest, ClickImageResponse
+from app.services.common.image_normalize import normalize_image_paths, normalize_match_mode
 from app.services.visual_service import visual_service
 
 logger = logging.getLogger(__name__)
-
-
-def normalize_match_mode(match_mode: str | None) -> str:
-    value = (match_mode or 'or').strip().lower()
-    if value in {'and', 'all', '和'}:
-        return 'and'
-    if value in {'or', 'any', '或'}:
-        return 'or'
-    raise ValueError(f'matchMode仅支持 or/any/或 或 and/all/和，当前值: {match_mode}')
-
-
-def normalize_image_paths(image_paths: list[str] | None = None, image_path: str | None = None) -> list[str]:
-    result: list[str] = []
-    if image_paths:
-        result.extend([item.strip() for item in image_paths if item and item.strip()])
-    if image_path and image_path.strip():
-        result.append(image_path.strip())
-    return list(dict.fromkeys(result))
 
 
 def click_image_until_found(
@@ -81,16 +64,6 @@ def click_images_until_found(
     match_mode: str = 'or',
     template_request: ClickImageRequest | None = None,
 ) -> list[ClickImageResponse]:
-    """
-    支持多张图像匹配。
-
-    OR 模式（or/any/或）:
-        轮询所有图像，任意一张出现即点击该图像并返回。
-    AND 模式（and/all/和）:
-        依次查找所有图像，全部找到并点击后才返回。
-
-    超时未满足条件则抛出 RuntimeError。
-    """
     paths = normalize_image_paths(image_paths)
     if not paths:
         raise ValueError('imagePaths不能为空')
@@ -146,7 +119,6 @@ def click_image_if_exists(
     button: str = 'left',
     error_handler=None,
 ) -> bool:
-    """兼容旧版单图点击工具：找到并点击返回 True，未找到或异常返回 False。"""
     if not image_path:
         return False
     try:

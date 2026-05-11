@@ -1,9 +1,8 @@
-from app.desktop.windows_manager import windows_manager
+from app.runtime.desktop.windows_manager import windows_manager
 from app.schemas.desktop import ActivateWindowRequest, ActivateWindowResponse, KeyboardActionResponse, HotkeyRequest, TypeTextRequest, WindowListResponse, WindowQueryRequest
 
 
 class DesktopService:
-    """给本地业务代码直接调用的桌面服务层。"""
 
     def list_windows(self, request: WindowQueryRequest | None = None) -> WindowListResponse:
         return windows_manager.list_windows(request or WindowQueryRequest())

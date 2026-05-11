@@ -3,7 +3,8 @@ from dataclasses import dataclass, field
 
 from app.core.config import get_settings
 from app.schemas.desktop import ClickImageRequest
-from app.utils.image_utils import click_images_until_found, normalize_image_paths, normalize_match_mode
+from app.services.common.image_normalize import normalize_image_paths, normalize_match_mode
+from app.utils.image_utils import click_images_until_found
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
