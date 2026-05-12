@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import TypeVar
 
 from app.db.session import SessionLocal
-from app.runtime.browser.browser_runtime_manager import browser_runtime_manager
+from app.services.browser_manager import browser_runtime_manager
 from app.browser.rpa_locator_backend import rpa_locator_backend
 
 from app.schemas.rpa import (

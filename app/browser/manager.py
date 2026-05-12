@@ -1,4 +1,4 @@
-from app.runtime.browser.browser_runtime_manager import (
+from app.services.browser_manager import (
     BrowserRuntimeManager,
     browser_runtime_manager as browser_session_manager,
 )

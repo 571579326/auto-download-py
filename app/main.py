@@ -9,7 +9,7 @@ from app.api.business import router as business_router
 from app.api.health import router as health_router
 from app.api.rpa import router as rpa_router
 from app.api.desktop import router as desktop_router
-from app.runtime.browser.browser_runtime_manager import browser_runtime_manager
+from app.services.browser_manager import browser_runtime_manager
 from app.core.asyncio_policy import ensure_windows_proactor_event_loop_policy
 from app.core.config import get_settings
 from app.core.logging_config import setup_logging
